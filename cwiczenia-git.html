@@ -269,7 +269,117 @@ const CWICZENIA = [
     poZaliczeniu: () => 'Gałąź main wskazuje ten sam commit, a jednak HEAD jest odczepiony: git checkout <hash> zawsze odczepia HEAD. Na koniec wróć na main: git checkout main.' },
 ];
 
-const DANE = { SCENARIUSZ, ZNANE_KOMENDY_GITA, TEKSTY, OBJASNIENIA, CWICZENIA };
+const LISTA_ZRZUTOW = [
+  { klucz: '01-nowe-repo', opis: 'Formularz New repository: nazwa cwiczenia-git, Public, bez README, .gitignore i licencji' },
+  { klucz: '02-puste-repo-adres', opis: 'Strona pustego repozytorium z gotową komendą git remote add origin' },
+  { klucz: '03-compare-pull-request', opis: 'Pasek „Compare & pull request" przy gałęzi nowa-funkcja' },
+  { klucz: '04-create-pull-request', opis: 'Formularz Pull Requesta: base: main, compare: nowa-funkcja, przycisk Create pull request' },
+  { klucz: '05-merge-pull-request', opis: 'Przycisk Merge pull request' },
+  { klucz: '06-confirm-merge', opis: 'Przycisk Confirm merge' },
+  { klucz: '07-lista-commitow', opis: 'Lista commitów na gałęzi main z przyciskiem kopiowania hasha' },
+  { klucz: '08-network', opis: 'Insights -> Network: rozwidlenie i scalenie gałęzi' },
+];
+
+const INSTRUKCJA = [
+  { tytul: '0. Przygotowanie', elementy: [
+    { typ: 'tekst', html: 'Ta instrukcja prowadzi Cię krok po kroku przez zbudowanie tego samego repozytorium, które oglądałeś w symulatorze - tym razem naprawdę, na Twoim komputerze i na GitHubie. Pliki tworzysz w Eksploratorze i Notatniku, a w konsoli wpisujesz tylko komendy gita.' },
+    { typ: 'tekst', html: 'Sprawdź wersję gita:' },
+    { typ: 'komenda', tekst: 'git --version' },
+    { typ: 'sprawdz', html: 'Wersja musi być co najmniej <code>2.28</code> (np. <code>git version 2.47.1.windows.1</code>). Starsza nie zna opcji <code>git init -b</code> - zainstaluj nowszego gita ze strony git-scm.com.' },
+    { typ: 'tekst', html: 'Włącz pokazywanie rozszerzeń plików: w Eksploratorze <strong>Widok -> Rozszerzenia nazw plików</strong> (w Windows 11: Widok -> Pokaż -> Rozszerzenia nazw plików). Bez tego Notatnik zapisze <code>plik1.txt.txt</code>.' },
+    { typ: 'tekst', html: 'Utwórz nowy, pusty folder <code>cwiczenia-git</code> (np. w Dokumentach). Otwórz go w Eksploratorze, kliknij w pasek adresu, wpisz <code>powershell</code> i naciśnij Enter - konsola otworzy się od razu w tym folderze. Komendy są takie same w PowerShellu, cmd i Git Bashu.' },
+  ] },
+  { tytul: '1. Kim jesteś dla gita', elementy: [
+    { typ: 'tekst', html: 'Każdy commit jest podpisany imieniem i adresem e-mail. Sprawdź, czy są ustawione:' },
+    { typ: 'komenda', tekst: 'git config --global user.name' },
+    { typ: 'komenda', tekst: 'git config --global user.email' },
+    { typ: 'tekst', html: 'Jeśli któraś komenda nic nie wypisała, ustaw brakującą wartość (wpisz swoje dane):' },
+    { typ: 'komenda', tekst: 'git config --global user.name "Imię Nazwisko"' },
+    { typ: 'komenda', tekst: 'git config --global user.email "adres@z-githuba.pl"' },
+    { typ: 'uwaga', html: 'Opcja <code>--global</code> jest tu potrzebna - bez niej, poza repozytorium, git odpowie <code>fatal: not in a git directory</code>.' },
+  ] },
+  { tytul: '2. Puste repozytorium na GitHubie', elementy: [
+    { typ: 'tekst', html: 'Na GitHubie kliknij <strong>+</strong> (prawy górny róg) -> <strong>New repository</strong>. Nazwa: <code>cwiczenia-git</code>.' },
+    { typ: 'wazne', html: 'Zaznacz Public i NIE dodawaj README, .gitignore ani licencji - repozytorium musi być zupełnie puste, inaczej pierwszy push zostanie odrzucony. Public jest potrzebne, żeby na darmowym koncie działał widok Insights -> Network (krok 10).' },
+    { typ: 'zrzut', klucz: '01-nowe-repo' },
+    { typ: 'tekst', html: 'Kliknij <strong>Create repository</strong> i zostaw tę stronę otwartą - w kroku 5 będzie potrzebny adres repozytorium.' },
+  ] },
+  { tytul: '3. Repozytorium na Twoim komputerze', elementy: [
+    { typ: 'krok', id: 'K1' },
+    { typ: 'uwaga', html: 'Na GitHubie i w poradnikach spotkasz gałąź główną o nazwie <code>master</code> albo <code>main</code> - to tylko nazwa gałęzi. W tym ćwiczeniu używamy <code>main</code>.' },
+  ] },
+  { tytul: '4. Dwa pierwsze commity', elementy: [
+    { typ: 'krok', id: 'K2' },
+    { typ: 'krok', id: 'K3' },
+    { typ: 'uwaga', html: 'Przy <code>git commit</code> zawsze dodawaj <code>-m "opis"</code>. Bez tego git otworzy edytor vim - jak z niego wyjść, opisuje <a href="#gdy-cos-nie-tak">ramka na dole strony</a>.' },
+    { typ: 'komenda', tekst: 'git status' },
+    { typ: 'sprawdz', html: '<code>git status</code> pokazuje <code>nothing to commit, working tree clean</code> - wszystko jest zapisane w commitach.' },
+  ] },
+  { tytul: '5. Wysyłamy repozytorium na GitHuba', elementy: [
+    { typ: 'tekst', html: 'Na stronie pustego repozytorium GitHub pokazuje gotową komendę <code>git remote add origin ...</code> z Twoim adresem (sekcja „...or push an existing repository from the command line"). Skopiuj ją stamtąd. Pozostałe linie z tej sekcji możesz pominąć - <code>git branch -M main</code> niczego nie zepsuje, bo gałąź już nazywa się main.' },
+    { typ: 'zrzut', klucz: '02-puste-repo-adres' },
+    { typ: 'krok', id: 'K4' },
+    { typ: 'wazne', html: 'Przy pierwszym <code>git push</code> może pojawić się okno logowania do GitHuba (Git Credential Manager). Często otwiera się POD konsolą - jeśli push „wisi", sprawdź pasek zadań. Gdy coś nie działa, skorzystaj z <a href="#gdy-cos-nie-tak">szablonu pytania do Claude Code</a>.' },
+    { typ: 'sprawdz', html: 'Odśwież stronę repozytorium na GitHubie - widać <code>plik1.txt</code> z dwiema liniami.' },
+  ] },
+  { tytul: '6. Gałąź nowa-funkcja', elementy: [
+    { typ: 'krok', id: 'K5' },
+    { typ: 'krok', id: 'K6' },
+    { typ: 'krok', id: 'K7' },
+    { typ: 'krok', id: 'K8' },
+    { typ: 'uwaga', html: 'Spotkasz też <code>git switch &lt;gałąź&gt;</code> (oraz <code>git switch -c</code> zamiast <code>git checkout -b</code>) - dla gałęzi robi to samo co <code>git checkout</code>.' },
+    { typ: 'sprawdz', html: 'Na GitHubie przełącznik gałęzi nad listą plików pokazuje teraz <code>main</code> i <code>nowa-funkcja</code>.' },
+  ] },
+  { tytul: '7. Commit na main', elementy: [
+    { typ: 'krok', id: 'K9' },
+    { typ: 'sprawdz', html: '<code>plik2.txt</code> i <code>plik3.txt</code> zniknęły z folderu - main ich nie zna. Nic nie przepadło: są w commitach gałęzi <code>nowa-funkcja</code>.' },
+    { typ: 'krok', id: 'K10' },
+    { typ: 'krok', id: 'K11' },
+    { typ: 'wazne', html: 'Ten git push zrób KONIECZNIE przed założeniem Pull Requesta.' },
+    { typ: 'sprawdz', html: 'Na GitHubie, na gałęzi <code>main</code>, otwórz <code>plik1.txt</code> - musi mieć linię „ta linia powstala na main". Dopiero wtedy przejdź dalej.' },
+  ] },
+  { tytul: '8. Pull Request: scalamy nowa-funkcja do main', elementy: [
+    { typ: 'krok', id: 'K12' },
+    { typ: 'tekst', html: 'Na stronie repozytorium kliknij <strong>Compare &amp; pull request</strong> na pasku z informacją o gałęzi <code>nowa-funkcja</code>. Jeśli paska nie ma: zakładka <strong>Pull requests</strong> -> <strong>New pull request</strong>.' },
+    { typ: 'zrzut', klucz: '03-compare-pull-request' },
+    { typ: 'wazne', html: 'Sprawdź kierunek scalania: base: main, compare: nowa-funkcja.' },
+    { typ: 'tekst', html: 'Kliknij <strong>Create pull request</strong>.' },
+    { typ: 'zrzut', klucz: '04-create-pull-request' },
+    { typ: 'tekst', html: 'Na stronie Pull Requesta kliknij <strong>Merge pull request</strong>, a potem <strong>Confirm merge</strong>. Przycisk <strong>Delete branch</strong>, który pojawi się potem, możesz pominąć.' },
+    { typ: 'zrzut', klucz: '05-merge-pull-request' },
+    { typ: 'zrzut', klucz: '06-confirm-merge' },
+  ] },
+  { tytul: '9. Pobieramy scalenie', elementy: [
+    { typ: 'krok', id: 'K13' },
+    { typ: 'sprawdz', html: 'W folderze są <code>plik1.txt</code>, <code>plik2.txt</code> i <code>plik3.txt</code>, a <code>plik1.txt</code> ma trzy linie.' },
+    { typ: 'wazne', html: 'Notatnik nie odświeża otwartego pliku. Po git pull i po każdym git checkout zamknij plik i otwórz go ponownie - inaczej zobaczysz starą treść.' },
+  ] },
+  { tytul: '10. Zobacz graf na GitHubie', elementy: [
+    { typ: 'tekst', html: 'Na GitHubie: <strong>Insights</strong> -> <strong>Network</strong>. To samo rozwidlenie i scalenie, które widziałeś w symulatorze.' },
+    { typ: 'zrzut', klucz: '08-network' },
+  ] },
+  { tytul: '11. Dla chętnych / w domu: ćwiczenia we własnym repozytorium', elementy: [
+    { typ: 'tekst', html: 'Powtórz ćwiczenia 1-8 z zakładki 2, tym razem w konsoli. Hasha nie wkleisz kliknięciem - weź go z listy commitów na GitHubie (<strong>Commits</strong> nad listą plików, przycisk kopiowania obok commita).' },
+    { typ: 'zrzut', klucz: '07-lista-commitow' },
+    { typ: 'komenda', tekst: 'git status' },
+    { typ: 'sprawdz', html: 'Przed startem <code>git status</code> musi pokazywać <code>nothing to commit, working tree clean</code>. Jeśli coś zmieniłeś w plikach, git może odmówić przełączenia (patrz <a href="#gdy-cos-nie-tak">ramka niżej</a>).' },
+    { typ: 'tekst', html: 'Hashe u Ciebie są inne niż w symulatorze - każdy commit ma unikalny hash. Ćwiczenie 7 utworzy u Ciebie gałąź <code>poprawka</code> - to w porządku.' },
+    { typ: 'wazne', html: 'Na koniec wróć na gałąź main:' },
+    { typ: 'komenda', tekst: 'git checkout main' },
+  ] },
+];
+
+const RAMKA_POMOCY = {
+  szablon: 'Jestem początkujący, robię ćwiczenie z gita. Wpisałem: [komenda]. Dostałem: [komunikat]. Wyjaśnij po polsku, co się stało i co mam zrobić.',
+  sytuacje: [
+    { tytul: 'Okno logowania się nie pojawia, a git push „wisi"', html: 'Okno logowania GitHuba (Git Credential Manager) mogło otworzyć się pod konsolą - sprawdź pasek zadań.' },
+    { tytul: 'Otworzył się dziwny edytor (vim)', html: 'Tak się dzieje po <code>git commit</code> bez <code>-m</code> albo po <code>git pull</code>, gdy commit z main nie został wypchnięty przed scaleniem Pull Requesta (Git for Windows domyślnie wtedy scala gałęzie i prosi o opis). Naciśnij <code>Esc</code>, potem wpisz <code>:q!</code> i Enter (przy commicie - przerywa commit) albo <code>:wq</code> i Enter (przy pull - zapisuje domyślny opis scalenia).' },
+    { tytul: 'error: Your local changes to the following files would be overwritten by checkout', html: 'Zmieniłeś i zapisałeś plik, a git nie chce nadpisać tej zmiany. <code>git status</code> pokaże, o który plik chodzi.' },
+    { tytul: 'Powstał plik1.txt.txt', html: 'Rozszerzenia nazw plików są ukryte w Eksploratorze - włącz je (krok 0) i zmień nazwę pliku na <code>plik1.txt</code>.' },
+  ],
+};
+
+const DANE = { SCENARIUSZ, ZNANE_KOMENDY_GITA, TEKSTY, OBJASNIENIA, CWICZENIA, LISTA_ZRZUTOW, INSTRUKCJA, RAMKA_POMOCY };
 </script>
 <script id="logika">
 const maWlasne = (obiekt, klucz) => Object.prototype.hasOwnProperty.call(obiekt, klucz);
@@ -953,6 +1063,81 @@ function odswiezHistorie() {
   rysuj(true);
 }
 
+async function kopiuj(tekst, przycisk) {
+  let ok = false;
+  try {
+    if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(tekst); ok = true; }
+  } catch (e) { ok = false; }
+  if (!ok) {
+    const pole = htmlEl('textarea', { style: 'position:fixed;opacity:0' });
+    pole.value = tekst;
+    document.body.append(pole);
+    pole.select();
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    pole.remove();
+  }
+  przycisk.textContent = ok ? 'Skopiowano' : 'Zaznacz i skopiuj ręcznie (Ctrl+C)';
+  setTimeout(() => { przycisk.textContent = 'Kopiuj'; }, 1800);
+}
+
+function przyciskKopiuj(tekst) {
+  const b = htmlEl('button', { class: 'kopiuj', type: 'button' }, 'Kopiuj');
+  b.addEventListener('click', () => kopiuj(tekst, b));
+  return b;
+}
+
+function blokKomendy(tekst) {
+  if (/<[^>]+>/.test(tekst)) {
+    return htmlEl('div', { class: 'komenda do-uzupelnienia', title: 'Zamiast tekstu w nawiasach ostrych wstaw swoje dane' },
+      htmlEl('code', {}, tekst), htmlEl('span', { style: 'font: 12px "Segoe UI", sans-serif' }, 'zamień adres na swój (z GitHuba)'), przyciskKopiuj(tekst));
+  }
+  return htmlEl('div', { class: 'komenda' }, htmlEl('code', {}, tekst), przyciskKopiuj(tekst));
+}
+
+function blokPliku(nazwa, linie) {
+  return htmlEl('div', { class: 'plik' },
+    htmlEl('div', { class: 'naglowek-pliku' }, nazwa, przyciskKopiuj(linie.join('\r\n'))),
+    htmlEl('pre', {}, linie.join('\n')));
+}
+
+function elementyKroku(k) {
+  const wezly = [];
+  if (k.plik) {
+    wezly.push(htmlEl('p', {}, k.plik.akcja === 'nowy' ? `W Notatniku utwórz plik ${k.plik.nazwa} z treścią:` : `W Notatniku dopisz na końcu pliku ${k.plik.nazwa} nową linię:`),
+      blokPliku(k.plik.nazwa, k.plik.linie),
+      htmlEl('p', {}, 'Zapisz plik (Ctrl+S), potem w konsoli:'));
+  }
+  for (const kom of komendyKroku(k)) wezly.push(blokKomendy(kom));
+  return wezly;
+}
+
+function elementInstrukcji(e) {
+  if (e.typ === 'tekst') return htmlEl('p', { html: e.html });
+  if (e.typ === 'komenda') return blokKomendy(e.tekst);
+  if (e.typ === 'sprawdz') return htmlEl('div', { class: 'sprawdz', html: '<strong>Sprawdź:</strong> ' + e.html });
+  if (e.typ === 'uwaga') return htmlEl('div', { class: 'uwaga', html: e.html });
+  if (e.typ === 'wazne') return htmlEl('div', { class: 'wazne', html: e.html });
+  if (e.typ === 'krok') return elementyKroku(SCENARIUSZ.kroki.find((k) => k.id === e.id));
+  if (e.typ === 'zrzut') {
+    const opis = LISTA_ZRZUTOW.find((z) => z.klucz === e.klucz).opis;
+    const podpis = `${opis}. Wygląd GitHuba mógł się zmienić od czasu przygotowania materiału - szukaj przycisków o tych samych nazwach.`;
+    return ZRZUTY[e.klucz]
+      ? htmlEl('figure', { class: 'zrzut' }, htmlEl('img', { src: ZRZUTY[e.klucz], alt: opis, loading: 'lazy' }), htmlEl('figcaption', {}, podpis))
+      : htmlEl('div', { class: 'brak-zrzutu' }, `Zrzut ekranu: ${opis}`);
+  }
+  return null;
+}
+
+function budujInstrukcje() {
+  const sekcje = INSTRUKCJA.map((s) => htmlEl('section', {}, htmlEl('h2', {}, s.tytul), ...s.elementy.map(elementInstrukcji)));
+  const ramka = htmlEl('section', { id: 'gdy-cos-nie-tak', class: 'ramka-pomocy' },
+    htmlEl('h2', {}, 'Gdy coś pójdzie nie tak'),
+    htmlEl('p', {}, 'Skopiuj ten szablon, uzupełnij nawiasy kwadratowe i wklej do Claude Code - wyjaśni, co się stało:'),
+    htmlEl('div', { class: 'plik' }, htmlEl('div', { class: 'naglowek-pliku' }, 'Pytanie do Claude Code', przyciskKopiuj(RAMKA_POMOCY.szablon)), htmlEl('pre', { style: 'white-space:pre-wrap' }, RAMKA_POMOCY.szablon)),
+    ...RAMKA_POMOCY.sytuacje.map((s) => htmlEl('div', {}, htmlEl('h3', {}, s.tytul), htmlEl('p', { html: s.html + ' Utknąłeś? Użyj szablonu wyżej.' }))));
+  document.getElementById('konsola').replaceChildren(htmlEl('div', { class: 'instrukcja' }, ...sekcje, ramka));
+}
+
 function pokazZakladke(id) {
   for (const b of document.querySelectorAll('.zakladki button')) b.setAttribute('aria-selected', String(b.dataset.zakladka === id));
   for (const s of document.querySelectorAll('.panel-zakladki')) s.hidden = s.id !== id;
@@ -963,6 +1148,7 @@ function start() {
   for (const b of document.querySelectorAll('.zakladki button')) b.addEventListener('click', () => pokazZakladke(b.dataset.zakladka));
   budujHistorie();
   budujSymulator();
+  budujInstrukcje();
   pokazZakladke('historia');
 }
 
