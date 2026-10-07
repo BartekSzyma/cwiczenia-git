@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ćwiczenia z gita - symulator</title>
+<style>
+:root {
+  --tlo: #f8fafc; --panel: #ffffff; --tekst: #0f172a; --przygaszony: #64748b; --ramka: #e2e8f0;
+  --main: #2563eb; --nowa: #16a34a; --head: #facc15; --odczepiony: #f97316;
+  --plus: #16a34a; --tylda: #ca8a04; --minus: #dc2626;
+  --terminal-tlo: #0f172a; --terminal-tekst: #e2e8f0;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; background: var(--tlo); color: var(--tekst); }
+code, pre { font-family: Consolas, "Cascadia Mono", monospace; }
+.naglowek { padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--ramka); display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+.naglowek h1 { font-size: 20px; margin: 0; }
+.zakladki { display: flex; gap: 4px; flex-wrap: wrap; }
+.zakladki button { border: 1px solid var(--ramka); background: var(--tlo); padding: 8px 14px; border-radius: 6px; cursor: pointer; font: inherit; }
+.zakladki button[aria-selected="true"] { background: var(--main); color: #fff; border-color: var(--main); }
+main { padding: 16px 20px; }
+.panel { background: var(--panel); border: 1px solid var(--ramka); border-radius: 8px; padding: 12px; }
+.panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--przygaszony); margin: 0 0 8px; }
+button { font: inherit; }
+
+/* graf */
+svg.graf { width: 100%; height: auto; display: block; }
+.nazwa-toru { font: 600 13px "Segoe UI", sans-serif; }
+.commit circle { stroke-width: 3; fill: #fff; }
+.commit.przygaszony { opacity: .3; }
+.commit.biezacy circle { stroke-width: 6; filter: drop-shadow(0 0 6px #facc15); }
+.commit text.hash { font: 12px Consolas, monospace; fill: var(--tekst); }
+.commit text.opis { font: 11px "Segoe UI", sans-serif; fill: var(--przygaszony); }
+.krawedz { fill: none; stroke-width: 3; }
+.krawedz.przygaszona { opacity: .3; }
+.etykieta text { font: 600 12px "Segoe UI", sans-serif; fill: #fff; }
+.head-etykieta { transition: transform .45s ease; }
+.head-etykieta rect { fill: var(--head); stroke: #a16207; stroke-width: 1.5; }
+.head-etykieta text { fill: #422006; font: 700 12px "Segoe UI", sans-serif; }
+.head-etykieta.odczepiony rect { fill: #ffedd5; stroke: var(--odczepiony); stroke-dasharray: 4 3; stroke-width: 2; }
+.polozenie { margin-top: 8px; font-size: 14px; }
+.pasek-odczepiony { margin-top: 8px; padding: 8px 12px; border: 2px dashed var(--odczepiony); background: #fff7ed; border-radius: 6px; }
+
+/* katalog */
+.katalog ul { list-style: none; padding: 0; margin: 0; }
+.katalog li { padding: 4px 6px; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between; gap: 8px; font-family: Consolas, monospace; }
+.katalog li.wybrany { background: #eff6ff; }
+.znacznik { font-weight: 700; font-family: "Segoe UI", sans-serif; font-size: 12px; }
+.znacznik.plus { color: var(--plus); } .znacznik.tylda { color: var(--tylda); } .znacznik.minus { color: var(--minus); }
+.katalog li.usuniety { color: var(--minus); text-decoration: line-through; animation: znikanie 1.8s forwards; pointer-events: none; }
+@keyframes znikanie { 0%, 60% { opacity: 1; } 100% { opacity: 0; } }
+.podglad { margin-top: 10px; border-top: 1px solid var(--ramka); padding-top: 8px; }
+.podglad pre { margin: 0; white-space: pre-wrap; font-size: 13px; }
+.linia-plus { background: #dcfce7; } .linia-minus { background: #fee2e2; text-decoration: line-through; }
+.pusty-katalog { color: var(--przygaszony); font-style: italic; }
+
+/* zakładka 2 */
+.uklad-symulatora { display: grid; grid-template-columns: minmax(0, 1fr) 320px; grid-template-areas: "graf cwiczenie" "terminal katalog"; gap: 12px; }
+.obszar-graf { grid-area: graf; } .obszar-cwiczenie { grid-area: cwiczenie; } .obszar-terminal { grid-area: terminal; } .obszar-katalog { grid-area: katalog; }
+.terminal { background: var(--terminal-tlo); color: var(--terminal-tekst); border-radius: 8px; padding: 10px 12px; font: 13px/1.45 Consolas, "Cascadia Mono", monospace; height: 360px; overflow-y: auto; cursor: text; }
+.terminal .linia { white-space: pre-wrap; word-break: break-word; }
+.terminal .linia.blad { color: #f87171; }
+.terminal .linia.hint { color: #94a3b8; }
+.terminal .linia.objasnienie { font-family: "Segoe UI", sans-serif; color: #fde68a; border-left: 3px solid #fde68a; padding-left: 8px; margin: 4px 0 8px; }
+.terminal .linia.symulator { font-family: "Segoe UI", sans-serif; color: #93c5fd; font-style: italic; margin: 4px 0; }
+.terminal .wejscie { display: flex; }
+.terminal .wejscie input { flex: 1; background: transparent; border: 0; color: inherit; font: inherit; outline: none; }
+.cwiczenie .polecenie { font-size: 16px; margin: 6px 0 10px; }
+.cwiczenie button { padding: 6px 12px; border-radius: 6px; border: 1px solid var(--ramka); background: var(--tlo); cursor: pointer; }
+.kropki { display: flex; gap: 6px; margin-top: 10px; }
+.kropka { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--przygaszony); }
+.kropka.zaliczone { background: var(--plus); border-color: var(--plus); }
+.kropka.pominiete { background: repeating-linear-gradient(45deg, #cbd5e1 0 3px, #fff 3px 6px); }
+.kropka.biezace { border-color: var(--main); box-shadow: 0 0 0 3px #bfdbfe; }
+.podpowiedz { margin-top: 8px; padding: 8px; background: #eff6ff; border-radius: 6px; }
+.zaliczenie { margin: 8px 0; padding: 10px; background: #dcfce7; border-radius: 6px; }
+
+/* zakładka 1 */
+.historia-uklad { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 12px; }
+.nawigacja-krokow { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+.nawigacja-krokow button { padding: 6px 14px; border-radius: 6px; border: 1px solid var(--ramka); background: var(--panel); cursor: pointer; }
+.nawigacja-krokow button:disabled { opacity: .4; cursor: default; }
+.stan-zdalny { margin: 8px 0; padding: 8px; background: var(--tlo); border-radius: 6px; font-size: 14px; }
+
+/* zakładka 3 */
+.instrukcja { max-width: 880px; }
+.instrukcja section { margin-bottom: 22px; }
+.komenda { display: flex; align-items: center; gap: 8px; background: var(--terminal-tlo); color: var(--terminal-tekst); padding: 6px 10px; border-radius: 6px; margin: 6px 0; }
+.komenda code { flex: 1; white-space: pre-wrap; }
+.komenda.do-uzupelnienia { outline: 2px dashed var(--tylda); }
+.kopiuj { font: 12px "Segoe UI", sans-serif; padding: 4px 8px; border-radius: 4px; border: 1px solid #475569; background: #1e293b; color: #e2e8f0; cursor: pointer; }
+.plik { border: 1px solid var(--ramka); border-radius: 6px; margin: 6px 0; background: var(--panel); }
+.plik .naglowek-pliku { display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background: var(--tlo); font-family: Consolas, monospace; }
+.plik pre { margin: 0; padding: 8px; }
+.sprawdz { border-left: 4px solid var(--plus); background: #f0fdf4; padding: 8px 12px; margin: 8px 0; }
+.uwaga { border-left: 4px solid var(--tylda); background: #fefce8; padding: 8px 12px; margin: 8px 0; }
+.wazne { border-left: 4px solid var(--minus); background: #fef2f2; padding: 8px 12px; margin: 8px 0; font-weight: 600; }
+figure.zrzut { margin: 10px 0; }
+figure.zrzut img { max-width: 100%; border: 1px solid var(--ramka); border-radius: 6px; }
+figure.zrzut figcaption { font-size: 13px; color: var(--przygaszony); }
+.brak-zrzutu { border: 2px dashed var(--ramka); padding: 24px; text-align: center; color: var(--przygaszony); }
+.ramka-pomocy { border: 2px solid var(--main); border-radius: 8px; padding: 12px 16px; background: #eff6ff; }
+
+@media (max-width: 900px) {
+  .uklad-symulatora { grid-template-columns: 1fr; grid-template-areas: "cwiczenie" "graf" "terminal" "katalog"; }
+  .historia-uklad { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<header class="naglowek">
+  <h1>Ćwiczenia z gita</h1>
+  <nav class="zakladki" role="tablist">
+    <button role="tab" data-zakladka="historia" aria-selected="true">1. Jak powstało repo</button>
+    <button role="tab" data-zakladka="symulator" aria-selected="false">2. Symulator i ćwiczenia</button>
+    <button role="tab" data-zakladka="konsola" aria-selected="false">3. Zrób to sam w konsoli</button>
+  </nav>
+</header>
+<main>
+  <section id="historia" class="panel-zakladki"></section>
+  <section id="symulator" class="panel-zakladki" hidden></section>
+  <section id="konsola" class="panel-zakladki" hidden></section>
+</main>
+<script id="dane">
+const DANE = {};
+</script>
+<script id="logika">
+const LOGIKA = {};
+</script>
+<script id="widok">
+function pokazZakladke(id) {
+  for (const b of document.querySelectorAll('.zakladki button')) b.setAttribute('aria-selected', String(b.dataset.zakladka === id));
+  for (const s of document.querySelectorAll('.panel-zakladki')) s.hidden = s.id !== id;
+  if (id === 'symulator') document.getElementById('sym-wejscie')?.focus();
+}
+
+function start() {
+  for (const b of document.querySelectorAll('.zakladki button')) b.addEventListener('click', () => pokazZakladke(b.dataset.zakladka));
+  pokazZakladke('historia');
+}
+
+window.addEventListener('load', start);
+</script>
+<script id="zrzuty">
+const ZRZUTY = {};
+</script>
+</body>
+</html>
