@@ -190,7 +190,51 @@ const SCENARIUSZ = (() => {
   };
 })();
 
-const DANE = { SCENARIUSZ };
+const ZNANE_KOMENDY_GITA = ['add', 'commit', 'push', 'pull', 'fetch', 'merge', 'rebase', 'reset', 'restore', 'revert', 'stash',
+  'status', 'log', 'diff', 'show', 'branch', 'switch', 'init', 'clone', 'remote', 'config', 'tag'];
+
+const TEKSTY = {
+  pomoc: [
+    'Obsługiwane komendy:',
+    '  git checkout <gałąź>     - przełącza na gałąź',
+    '  git checkout <hash>      - przełącza na commit (odczepiony HEAD); hash wkleisz, klikając commit w grafie',
+    '  git checkout -b <nazwa>  - tworzy gałąź tam, gdzie stoisz, i od razu na nią przełącza',
+    '  help                     - ta lista',
+    '  clear                    - czyści terminal (także Ctrl+L)',
+    '  restart                  - przywraca repozytorium do stanu po scaleniu (postęp ćwiczeń zostaje)',
+  ],
+  cudzyslow: 'Brakuje zamykającego cudzysłowu - komenda nie została wykonana.',
+  nieznanaKomenda: (x) => `Nie znam komendy „${x}". Wpisz help, żeby zobaczyć listę.`,
+  samoGit: 'Podaj komendę, np. git checkout main',
+  tylkoPoruszanie: 'W symulatorze tylko się poruszamy - tę komendę wykonasz we własnym repo (zakładka 3)',
+  restart: (opis) => `Repozytorium wróciło do stanu po scaleniu (${opis}, HEAD wskazuje main). Postęp ćwiczeń został.`,
+  bStartPoint: 'W symulatorze nową gałąź tworzysz tam, gdzie stoisz: najpierw przełącz się na commit, potem git checkout -b nazwa',
+  nieobslugiwanaForma: 'Ta forma działa w prawdziwym gicie, ale symulator jej nie obsługuje - użyj nazwy gałęzi albo hasha',
+  przywracaniePlikow: 'Przywracanie plików nie jest częścią tego ćwiczenia',
+  powitanie: 'Witaj w symulatorze. Repozytorium jest w stanie po scaleniu. Wpisz help, żeby zobaczyć komendy.',
+};
+
+const OBJASNIENIA = {
+  juzNaGalezi: (g) => `Tłumaczenie: „Już jesteś na gałęzi ${g}". Nic się nie zmieniło - HEAD już wskazuje tę gałąź.`,
+  przelaczono: (g) => `Tłumaczenie: „Przełączono na gałąź ${g}". HEAD wskazuje teraz gałąź ${g}, a pliki w katalogu wyglądają tak jak w commicie, na który ta gałąź wskazuje.`,
+  wyjscieZOdczepionego: (h, g) => `Tłumaczenie: „Poprzednio HEAD był na commicie ${h}. Przełączono na gałąź ${g}". Git przypomina, z którego commita wychodzisz, bo stałeś tam bez gałęzi (odczepiony HEAD). Teraz HEAD znowu wskazuje gałąź ${g}.`,
+  odczepiony: (arg, h) => `Tłumaczenie w skrócie: „Przełączam na ${arg}. Jesteś w stanie odczepionego HEAD (detached HEAD): możesz się rozglądać, a nawet robić commity, ale nie będą należeć do żadnej gałęzi. Żeby je zachować, utwórz gałąź. HEAD jest teraz na ${h}". O co chodzi: oglądasz commit ${h}, ale nie jesteś na żadnej gałęzi. Git podpowiada komendy git switch -c oraz git switch -: to nowsze odpowiedniki git checkout -b <nazwa> i powrotu na poprzednią gałąź. W tym ćwiczeniu używamy checkout.`,
+  przeskok: (hp, h) => `Tłumaczenie: „Poprzednio HEAD był na ${hp}. HEAD jest teraz na ${h}". Przeskoczyłeś z jednego commita na inny - nadal bez gałęzi (odczepiony HEAD).`,
+  juzNaCommicie: (h) => `Tłumaczenie: „HEAD jest teraz na ${h}". Już tu byłeś - nic się nie zmieniło.`,
+  nowaGalaz: (g) => `Tłumaczenie: „Przełączono na nową gałąź ${g}". Gałąź ${g} powstała na commicie, na którym stoisz, i HEAD od razu na nią wskazuje. Jeśli HEAD był odczepiony, teraz już nie jest.`,
+  galazIstnieje: (g, istniejaca) => `Tłumaczenie: „błąd krytyczny: gałąź o nazwie ${g} już istnieje". Wybierz inną nazwę albo przełącz się na istniejącą gałąź bez -b.` +
+    (g !== istniejaca ? ` W Windows git nie odróżnia wielkości liter w nazwach gałęzi: ${g} to dla niego to samo co ${istniejaca}.` : ''),
+  zlaNazwa: (g) => `Tłumaczenie: „${g} nie jest poprawną nazwą gałęzi" (linie hint odsyłają do dokumentacji). Nazwa gałęzi nie może zawierać spacji ani znaków takich jak ~ ^ : ? * [ \\ i nie może zaczynać się od minusa. Użyj np. moja-galaz.`,
+  kolizja: (g, k) => `Tłumaczenie: „nie można utworzyć ${g}, bo istnieje ${k}". Git zapisuje gałęzie jak pliki w folderach, więc gałąź ${k} blokuje nazwę ${g} (i odwrotnie). Wybierz inną nazwę.`,
+  brakNazwy: 'Tłumaczenie: „opcja b wymaga wartości". Po -b podaj nazwę nowej gałęzi, np. git checkout -b moja-galaz.',
+  pathspec: (x) => `Tłumaczenie: „ścieżka ${x} nie pasuje do żadnego pliku znanego gitowi". Git nie znalazł gałęzi, commita ani pliku o nazwie „${x}". Sprawdź literówkę; hash musi mieć co najmniej 4 znaki.`,
+  pustyNapis: 'Tłumaczenie: „pusty napis nie jest poprawną ścieżką". Między cudzysłowami nic nie ma - podaj gałąź albo hash.',
+  nieznanaOpcja: (x) => `Tłumaczenie: „nieznana opcja ${x}", a pod spodem początek opisu użycia. Symulator rozumie tylko opcję -b (prawdziwy git wypisuje tu jeszcze długą listę wszystkich opcji).`,
+  checkoutBezArgumentu: 'Prawdziwy git nic tu nie wypisuje. Sam checkout nic nie robi - podaj gałąź albo hash, np. git checkout main.',
+  nieKomendaGita: (x, p) => `Tłumaczenie: „${x} nie jest komendą gita". Może literówka?` + (p ? ` Git podpowiada najbardziej podobną komendę: ${p}.` : ''),
+};
+
+const DANE = { SCENARIUSZ, ZNANE_KOMENDY_GITA, TEKSTY, OBJASNIENIA };
 </script>
 <script id="logika">
 const maWlasne = (obiekt, klucz) => Object.prototype.hasOwnProperty.call(obiekt, klucz);
@@ -327,7 +371,59 @@ function rozwiazRewizje(stan, arg) {
   return { typ: 'brak' };
 }
 
-const LOGIKA = { commitPoId, skrot, migawka, stanStartowy, biezacyCommit, osiagalneZ, roznicaMigawek, roznicaLinii, domyslnyPlik, opisPolozenia, katalogKroku, komendyKroku, opisGalezi, tokenizuj, poprawnaNazwaGalezi, rozwiazRewizje };
+const git = (tekst) => ({ typ: 'git', tekst });
+const obj = (tekst) => ({ typ: 'objasnienie', tekst });
+const sym = (tekst) => ({ typ: 'symulator', tekst });
+
+function odleglosc(a, b) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...new Array(b.length).fill(0)]);
+  for (let k = 1; k <= b.length; k++) d[0][k] = k;
+  for (let i = 1; i <= a.length; i++) {
+    for (let k = 1; k <= b.length; k++) {
+      d[i][k] = Math.min(d[i - 1][k] + 1, d[i][k - 1] + 1, d[i - 1][k - 1] + (a[i - 1] === b[k - 1] ? 0 : 1));
+    }
+  }
+  return d[a.length][b.length];
+}
+
+function nieznanaKomendaGita(pod) {
+  const kandydaci = ['checkout', ...ZNANE_KOMENDY_GITA];
+  const bliskie = kandydaci.filter((k) => odleglosc(pod.toLowerCase(), k) <= 2);
+  const podpowiedz = bliskie.length === 1 ? bliskie[0] : null;
+  const wynik = [git(`git: '${pod}' is not a git command. See 'git --help'.`)];
+  if (podpowiedz) wynik.push(git(''), git('The most similar command is'), git('\t' + podpowiedz));
+  wynik.push(obj(OBJASNIENIA.nieKomendaGita(pod, podpowiedz)));
+  return wynik;
+}
+
+// Wersja minimalna - pełna obsługa w Task 6.
+function checkout(stan, argumenty) {
+  if (argumenty.length === 0) return { stan, wynik: [obj(OBJASNIENIA.checkoutBezArgumentu)], wykonanie: null, akcja: null };
+  return { stan, wynik: [git(`error: pathspec '${argumenty[0]}' did not match any file(s) known to git`), obj(OBJASNIENIA.pathspec(argumenty[0]))], wykonanie: null, akcja: null };
+}
+
+function wykonaj(stan, linia) {
+  const nic = (wynik, akcja = null) => ({ stan, wynik, wykonanie: null, akcja });
+  const t = tokenizuj(linia.trim());
+  if (t.blad) return nic([sym(TEKSTY.cudzyslow)]);
+  const [komenda, ...reszta] = t.tokeny;
+  if (komenda === undefined) return nic([]);
+  const mala = komenda.toLowerCase();
+  if (mala === 'help') return nic(TEKSTY.pomoc.map(sym));
+  if (mala === 'clear') return nic([], 'clear');
+  if (mala === 'restart') {
+    const nowy = stanStartowy();
+    return { stan: nowy, wynik: [sym(TEKSTY.restart(opisGalezi(nowy.galezie)))], wykonanie: null, akcja: 'restart' };
+  }
+  if (mala !== 'git') return nic([sym(TEKSTY.nieznanaKomenda(komenda))]);
+  if (reszta.length === 0) return nic([sym(TEKSTY.samoGit)]);
+  const [pod, ...argumenty] = reszta;
+  if (pod === 'checkout') return checkout(stan, argumenty);
+  if (pod.startsWith('-') || ZNANE_KOMENDY_GITA.includes(pod)) return nic([sym(TEKSTY.tylkoPoruszanie)]);
+  return nic(nieznanaKomendaGita(pod));
+}
+
+const LOGIKA = { commitPoId, skrot, migawka, stanStartowy, biezacyCommit, osiagalneZ, roznicaMigawek, roznicaLinii, domyslnyPlik, opisPolozenia, katalogKroku, komendyKroku, opisGalezi, tokenizuj, poprawnaNazwaGalezi, rozwiazRewizje, wykonaj };
 </script>
 <script id="widok">
 function pokazZakladke(id) {
