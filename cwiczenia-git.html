@@ -123,10 +123,114 @@ figure.zrzut figcaption { font-size: 13px; color: var(--przygaszony); }
   <section id="konsola" class="panel-zakladki" hidden></section>
 </main>
 <script id="dane">
-const DANE = {};
+const SCENARIUSZ = (() => {
+  const L1 = 'to jest poczatkowa zawartosc pliku';
+  const L2 = 'to dodalismy w kolejnym commicie';
+  const L3 = 'ta linia powstala na main';
+  const P2 = ['nowy plik tekstowy'];
+  const P3 = ['zawartosc pliku nr 3'];
+  return {
+    commity: [
+      { id: 'C1', hash: '1c4e7a228c27031fe7162d732a1c2e209a40bbfc', rodzice: [], tor: 'main', opis: 'Pierwszy commit',
+        pliki: { 'plik1.txt': [L1] } },
+      { id: 'C2', hash: '5b8d0f3cb7d29f43f4a81ff1f3a1202c80293337', rodzice: ['C1'], tor: 'main', opis: 'Druga linia w plik1',
+        pliki: { 'plik1.txt': [L1, L2] } },
+      { id: 'C3', hash: '9e2a6c40371438f82b01efb31e37cd12a4a6b6c8', rodzice: ['C2'], tor: 'nowa-funkcja', opis: 'Dodano plik2',
+        pliki: { 'plik1.txt': [L1, L2], 'plik2.txt': P2 } },
+      { id: 'C4', hash: 'd7f1b85aaa025b3826509827b773a79dde61238b', rodzice: ['C3'], tor: 'nowa-funkcja', opis: 'Dodano plik3',
+        pliki: { 'plik1.txt': [L1, L2], 'plik2.txt': P2, 'plik3.txt': P3 } },
+      { id: 'C5', hash: '3a6c9e0fbeff7287bb8d46577504b6c72d5ba3e5', rodzice: ['C2'], tor: 'main', opis: 'Linia na main',
+        pliki: { 'plik1.txt': [L1, L2, L3] } },
+      { id: 'C6', hash: 'f0b4d27742fbe7716cc1fdef3e9a8d5c58b0d693', rodzice: ['C5', 'C4'], tor: 'main', opis: 'Merge pull request #1 from kursant/nowa-funkcja',
+        pliki: { 'plik1.txt': [L1, L2, L3], 'plik2.txt': P2, 'plik3.txt': P3 } },
+    ],
+    startoweGalezie: { 'main': 'C6', 'nowa-funkcja': 'C4' },
+    startowyHead: { typ: 'galaz', nazwa: 'main' },
+    kroki: [],
+  };
+})();
+
+const DANE = { SCENARIUSZ };
 </script>
 <script id="logika">
-const LOGIKA = {};
+const maWlasne = (obiekt, klucz) => Object.prototype.hasOwnProperty.call(obiekt, klucz);
+
+function commitPoId(id) {
+  return SCENARIUSZ.commity.find((c) => c.id === id) || null;
+}
+
+function skrot(id) {
+  return commitPoId(id).hash.slice(0, 7);
+}
+
+function migawka(id) {
+  return id ? commitPoId(id).pliki : {};
+}
+
+function stanStartowy() {
+  return { head: { ...SCENARIUSZ.startowyHead }, galezie: { ...SCENARIUSZ.startoweGalezie }, poprzedniHead: null };
+}
+
+function biezacyCommit(stan) {
+  if (stan.head.typ === 'galaz') return maWlasne(stan.galezie, stan.head.nazwa) ? stan.galezie[stan.head.nazwa] : null;
+  return stan.head.commit;
+}
+
+function osiagalneZ(id) {
+  const odwiedzone = new Set();
+  const stos = id ? [id] : [];
+  while (stos.length) {
+    const c = stos.pop();
+    if (odwiedzone.has(c)) continue;
+    odwiedzone.add(c);
+    stos.push(...commitPoId(c).rodzice);
+  }
+  return SCENARIUSZ.commity.map((c) => c.id).filter((x) => odwiedzone.has(x));
+}
+
+function roznicaMigawek(a, b) {
+  const dodane = [], zmienione = [], usuniete = [];
+  for (const n of Object.keys(b)) {
+    if (!maWlasne(a, n)) dodane.push(n);
+    else if (a[n].join('\n') !== b[n].join('\n')) zmienione.push(n);
+  }
+  for (const n of Object.keys(a)) if (!maWlasne(b, n)) usuniete.push(n);
+  return { dodane, zmienione, usuniete };
+}
+
+function roznicaLinii(stare, nowe) {
+  const n = stare.length, m = nowe.length;
+  const d = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) {
+    for (let k = m - 1; k >= 0; k--) d[i][k] = stare[i] === nowe[k] ? d[i + 1][k + 1] + 1 : Math.max(d[i + 1][k], d[i][k + 1]);
+  }
+  const wynik = [];
+  let i = 0, k = 0;
+  while (i < n && k < m) {
+    if (stare[i] === nowe[k]) { wynik.push({ typ: '=', tekst: stare[i] }); i++; k++; }
+    else if (d[i + 1][k] >= d[i][k + 1]) { wynik.push({ typ: '-', tekst: stare[i] }); i++; }
+    else { wynik.push({ typ: '+', tekst: nowe[k] }); k++; }
+  }
+  while (i < n) wynik.push({ typ: '-', tekst: stare[i++] });
+  while (k < m) wynik.push({ typ: '+', tekst: nowe[k++] });
+  return wynik;
+}
+
+function domyslnyPlik(pliki, poprzednie, obecny) {
+  const r = roznicaMigawek(poprzednie, pliki);
+  const zmienione = [...r.zmienione, ...r.dodane];
+  if (zmienione.length) return zmienione[0];
+  if (obecny && maWlasne(pliki, obecny)) return obecny;
+  return Object.keys(pliki)[0] ?? null;
+}
+
+function opisPolozenia(stan) {
+  const c = biezacyCommit(stan);
+  if (stan.head.typ === 'galaz') return `Jesteś na: gałęzi ${stan.head.nazwa}, commit ${skrot(c)}`;
+  return `Jesteś na: commicie ${skrot(c)} (odczepiony HEAD)`;
+}
+
+const LOGIKA = { commitPoId, skrot, migawka, stanStartowy, biezacyCommit, osiagalneZ, roznicaMigawek, roznicaLinii, domyslnyPlik, opisPolozenia };
 </script>
 <script id="widok">
 function pokazZakladke(id) {
