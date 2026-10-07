@@ -286,7 +286,48 @@ function opisGalezi(galezie) {
   return wpisy.map(([n, id]) => `${n}: ${skrot(id)}`).join(', ');
 }
 
-const LOGIKA = { commitPoId, skrot, migawka, stanStartowy, biezacyCommit, osiagalneZ, roznicaMigawek, roznicaLinii, domyslnyPlik, opisPolozenia, katalogKroku, komendyKroku, opisGalezi };
+function tokenizuj(linia) {
+  const tokeny = [];
+  let biezacy = null;
+  let wCudzyslowie = false;
+  for (const znak of linia) {
+    if (znak === '"') {
+      wCudzyslowie = !wCudzyslowie;
+      if (biezacy === null) biezacy = '';
+      continue;
+    }
+    if (!wCudzyslowie && /\s/.test(znak)) {
+      if (biezacy !== null) { tokeny.push(biezacy); biezacy = null; }
+      continue;
+    }
+    biezacy = (biezacy ?? '') + znak;
+  }
+  if (wCudzyslowie) return { blad: 'cudzyslow' };
+  if (biezacy !== null) tokeny.push(biezacy);
+  return { tokeny };
+}
+
+function poprawnaNazwaGalezi(nazwa) {
+  if (!nazwa || nazwa === 'HEAD' || nazwa === '@') return false;
+  if (/[\x00-\x20\x7f~^:?*[\\]/.test(nazwa)) return false;
+  if (nazwa.includes('..') || nazwa.includes('//') || nazwa.includes('@{')) return false;
+  if (nazwa.startsWith('-') || nazwa.startsWith('/')) return false;
+  if (nazwa.endsWith('/') || nazwa.endsWith('.')) return false;
+  return nazwa.split('/').every((czesc) => !czesc.startsWith('.') && !czesc.endsWith('.lock'));
+}
+
+function rozwiazRewizje(stan, arg) {
+  if (maWlasne(stan.galezie, arg)) return { typ: 'galaz', nazwa: arg };
+  if (arg === '@' || arg === '-' || arg.startsWith('HEAD') || /[~^]|@\{/.test(arg)) return { typ: 'nieobslugiwana' };
+  if (maWlasne(migawka(biezacyCommit(stan)), arg)) return { typ: 'plik' };
+  if (/^[0-9a-f]{4,40}$/i.test(arg)) {
+    const pasujace = SCENARIUSZ.commity.filter((c) => c.hash.startsWith(arg.toLowerCase()));
+    if (pasujace.length === 1) return { typ: 'commit', id: pasujace[0].id };
+  }
+  return { typ: 'brak' };
+}
+
+const LOGIKA = { commitPoId, skrot, migawka, stanStartowy, biezacyCommit, osiagalneZ, roznicaMigawek, roznicaLinii, domyslnyPlik, opisPolozenia, katalogKroku, komendyKroku, opisGalezi, tokenizuj, poprawnaNazwaGalezi, rozwiazRewizje };
 </script>
 <script id="widok">
 function pokazZakladke(id) {
