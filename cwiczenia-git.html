@@ -46,6 +46,7 @@ svg.graf { width: 100%; height: auto; display: block; }
 .katalog ul { list-style: none; padding: 0; margin: 0; }
 .katalog li { padding: 4px 6px; border-radius: 4px; cursor: pointer; display: flex; justify-content: space-between; gap: 8px; font-family: Consolas, monospace; }
 .katalog li.wybrany { background: #eff6ff; }
+.katalog li:focus-visible, .commit:focus-visible { outline: 3px solid var(--main); outline-offset: 2px; }
 .znacznik { font-weight: 700; font-family: "Segoe UI", sans-serif; font-size: 12px; }
 .znacznik.plus { color: var(--plus); } .znacznik.tylda { color: var(--tylda); } .znacznik.minus { color: var(--minus); }
 .katalog li.usuniety { color: var(--minus); text-decoration: line-through; animation: znikanie 1.8s forwards; pointer-events: none; }
@@ -739,7 +740,7 @@ function svgEl(nazwa, atrybuty = {}, rodzic = null) {
 }
 
 function nowySvg(id) {
-  return svgEl('svg', { id, class: 'graf', role: 'img', 'aria-label': 'Graf commitów repozytorium' });
+  return svgEl('svg', { id, class: 'graf', role: 'group', 'aria-label': 'Graf commitów repozytorium' });
 }
 
 const maKolorStaly = (nazwa) => Object.prototype.hasOwnProperty.call(KOLORY_GALEZI, nazwa);
@@ -802,7 +803,14 @@ function rysujGraf(svg, { commity, galezie, head, osiagalne, naKlik }) {
     svgEl('text', { y: 36, 'text-anchor': 'middle', class: 'hash' }, g).textContent = c.hash.slice(0, 7);
     svgEl('text', { y: 51, 'text-anchor': 'middle', class: 'opis' }, g).textContent = c.opis.length > 18 ? c.opis.slice(0, 17) + '…' : c.opis;
     svgEl('title', {}, g).textContent = `${c.hash.slice(0, 7)} ${c.opis}` + (naKlik ? ' (kliknij, żeby wkleić hash do terminala)' : '');
-    if (naKlik) { g.style.cursor = 'pointer'; g.addEventListener('click', () => naKlik(id)); }
+    if (naKlik) {
+      g.style.cursor = 'pointer';
+      g.setAttribute('tabindex', '0');
+      g.setAttribute('role', 'button');
+      g.setAttribute('aria-label', `Commit ${c.hash.slice(0, 7)} ${c.opis} - wklej hash do terminala`);
+      g.addEventListener('click', () => naKlik(id));
+      g.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); naKlik(id); } });
+    }
   }
 
   const naCommicie = {};
@@ -856,7 +864,15 @@ function rysujKatalog(kontener, { pliki, poprzednie, wybrany, naWybor, pokazUsun
   for (const n of nazwy) {
     const usuniety = r.usuniete.includes(n);
     const znak = r.dodane.includes(n) ? ['+ nowy', 'plus'] : r.zmienione.includes(n) ? ['~ zmieniony', 'tylda'] : usuniety ? ['- zniknął', 'minus'] : null;
-    lista.append(htmlEl('li', { class: [n === wybrany ? 'wybrany' : '', usuniety ? 'usuniety' : ''].join(' ').trim(), title: 'Kliknij, żeby zobaczyć treść', onclick: () => naWybor(n) },
+    const wybierz = () => {
+      naWybor(n);
+      [...kontener.querySelectorAll('li')].find((el) => el.dataset.plik === n)?.focus();
+    };
+    lista.append(htmlEl('li', {
+      class: [n === wybrany ? 'wybrany' : '', usuniety ? 'usuniety' : ''].join(' ').trim(), title: 'Kliknij, żeby zobaczyć treść',
+      tabindex: usuniety ? '-1' : '0', role: 'button', 'aria-pressed': String(n === wybrany), 'data-plik': n,
+      onclick: wybierz, onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); wybierz(); } },
+    },
       htmlEl('span', {}, n), znak ? htmlEl('span', { class: 'znacznik ' + znak[1] }, znak[0]) : null));
   }
   const podglad = htmlEl('div', { class: 'podglad' });
