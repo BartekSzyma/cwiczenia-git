@@ -93,3 +93,75 @@ test('domyslnyPlik: najpierw zmieniony, potem dodany, potem obecny, potem pierws
   assert.equal(A.domyslnyPlik(C1, C1, 'plik3.txt'), 'plik1.txt');
   assert.equal(A.domyslnyPlik({}, {}, null), null);
 });
+
+const K = () => A.SCENARIUSZ.kroki;
+const krok = (id) => K().find((k) => k.id === id);
+
+test('13 kroków K1-K13 z tytułem i opisem', () => {
+  assert.deepEqual(j(K().map((k) => k.id)), ['K1', 'K2', 'K3', 'K4', 'K5', 'K6', 'K7', 'K8', 'K9', 'K10', 'K11', 'K12', 'K13']);
+  for (const k of K()) {
+    assert.ok(k.tytul.length > 0, k.id);
+    assert.ok(k.opis.length > 40, k.id);
+  }
+});
+
+test('krok z commitem: commit dochodzi do lokalnych, gałąź HEAD na nim, katalog = poprzedni + akcja na pliku = migawka commita', () => {
+  const kroki = K();
+  const zCommitem = kroki.filter((k) => k.commit).map((k) => k.id);
+  assert.deepEqual(j(zCommitem), ['K2', 'K3', 'K6', 'K7', 'K10']);
+  for (let i = 1; i < kroki.length; i++) {
+    const k = kroki[i], p = kroki[i - 1];
+    if (!k.commit) continue;
+    assert.deepEqual(j(k.lokalnie.commity), [...j(p.lokalnie.commity), k.commit], k.id);
+    assert.equal(k.lokalnie.galezie[k.lokalnie.head.nazwa], k.commit, k.id);
+    const przed = j(A.katalogKroku(p));
+    const nazwa = k.plik.nazwa;
+    const oczekiwane = { ...przed, [nazwa]: k.plik.akcja === 'nowy' ? j(k.plik.linie) : [...(przed[nazwa] || []), ...j(k.plik.linie)] };
+    assert.deepEqual(j(A.katalogKroku(k)), oczekiwane, k.id);
+    assert.deepEqual(j(A.commitPoId(k.commit).pliki), oczekiwane, k.id);
+  }
+});
+
+test('komendy kroków z commitem biorą opis z commita', () => {
+  assert.deepEqual(j(A.komendyKroku(krok('K2'))), ['git add .', 'git commit -m "Pierwszy commit"']);
+  assert.deepEqual(j(A.komendyKroku(krok('K10'))), ['git add .', 'git commit -m "Linia na main"']);
+  assert.deepEqual(j(A.komendyKroku(krok('K1'))), ['git init -b main']);
+  assert.deepEqual(j(A.komendyKroku(krok('K12'))), []);
+  assert.deepEqual(j(A.komendyKroku(krok('K13'))), ['git pull']);
+});
+
+test('przejścia katalogu między krokami', () => {
+  const r = (a, b) => j(A.roznicaMigawek(A.katalogKroku(krok(a)), A.katalogKroku(krok(b))));
+  assert.deepEqual(r('K8', 'K9'), { dodane: [], zmienione: [], usuniete: ['plik2.txt', 'plik3.txt'] });
+  assert.deepEqual(r('K11', 'K12'), { dodane: [], zmienione: [], usuniete: [] });
+  assert.deepEqual(r('K12', 'K13'), { dodane: ['plik2.txt', 'plik3.txt'], zmienione: [], usuniete: [] });
+  assert.deepEqual(j(A.katalogKroku(krok('K1'))), {});
+});
+
+test('stan GitHuba: pusty przed K4, C6 w K12 tylko na GitHubie', () => {
+  for (const id of ['K1', 'K2', 'K3']) assert.deepEqual(j(krok(id).github.galezie), {}, id);
+  assert.deepEqual(j(krok('K4').github.galezie), { main: 'C2' });
+  assert.deepEqual(j(krok('K8').github.galezie), { main: 'C2', 'nowa-funkcja': 'C4' });
+  assert.deepEqual(j(krok('K11').github.galezie), { main: 'C5', 'nowa-funkcja': 'C4' });
+  assert.deepEqual(j(krok('K12').github.galezie), { main: 'C6', 'nowa-funkcja': 'C4' });
+  assert.ok(!krok('K12').lokalnie.commity.includes('C6'));
+  assert.ok(krok('K13').lokalnie.commity.includes('C6'));
+});
+
+test('K1: HEAD na main bez commitów; K13 = stan startowy symulatora', () => {
+  assert.deepEqual(j(krok('K1').lokalnie), { commity: [], galezie: {}, head: { typ: 'galaz', nazwa: 'main' } });
+  assert.deepEqual(j(krok('K13').lokalnie.galezie), j(A.SCENARIUSZ.startoweGalezie));
+  assert.deepEqual(j(krok('K13').lokalnie.head), j(A.SCENARIUSZ.startowyHead));
+});
+
+test('gałęzie w każdym kroku wskazują istniejące commity', () => {
+  for (const k of K()) {
+    for (const id of Object.values(k.lokalnie.galezie)) assert.ok(k.lokalnie.commity.includes(id), `${k.id} lokalnie ${id}`);
+    for (const id of Object.values(k.github.galezie)) assert.ok(A.commitPoId(id), `${k.id} github ${id}`);
+  }
+});
+
+test('opisGalezi', () => {
+  assert.equal(A.opisGalezi({}), 'brak gałęzi');
+  assert.equal(A.opisGalezi({ main: 'C6', 'nowa-funkcja': 'C4' }), 'main: f0b4d27, nowa-funkcja: d7f1b85');
+});

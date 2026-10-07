@@ -146,7 +146,47 @@ const SCENARIUSZ = (() => {
     ],
     startoweGalezie: { 'main': 'C6', 'nowa-funkcja': 'C4' },
     startowyHead: { typ: 'galaz', nazwa: 'main' },
-    kroki: [],
+    kroki: [
+      { id: 'K1', tytul: 'Zakładamy repozytorium', komendy: ['git init -b main'],
+        opis: 'git init tworzy w folderze ukryty katalog .git - to właśnie jest repozytorium. Opcja -b main nadaje pierwszej gałęzi nazwę main. Nie ma jeszcze żadnego commita, więc gałąź main na nic nie wskazuje.',
+        lokalnie: { commity: [], galezie: {}, head: { typ: 'galaz', nazwa: 'main' } }, github: { galezie: {} } },
+      { id: 'K2', tytul: 'Pierwszy commit', plik: { nazwa: 'plik1.txt', akcja: 'nowy', linie: [L1] }, commit: 'C1',
+        opis: 'W Notatniku tworzymy plik1.txt. git add . dodaje zmiany do poczekalni (staging), a git commit zapisuje migawkę całego katalogu. Gałąź main wskazuje teraz ten commit, a HEAD wskazuje gałąź main.',
+        lokalnie: { commity: ['C1'], galezie: { main: 'C1' }, head: { typ: 'galaz', nazwa: 'main' } }, github: { galezie: {} } },
+      { id: 'K3', tytul: 'Drugi commit', plik: { nazwa: 'plik1.txt', akcja: 'dopisz', linie: [L2] }, commit: 'C2',
+        opis: 'Dopisujemy linię i robimy kolejny commit. Nowy commit pamięta swojego rodzica (poprzedni commit), a gałąź main przesuwa się na nowy commit.',
+        lokalnie: { commity: ['C1', 'C2'], galezie: { main: 'C2' }, head: { typ: 'galaz', nazwa: 'main' } }, github: { galezie: {} } },
+      { id: 'K4', tytul: 'Wysyłamy repozytorium na GitHuba', komendy: ['git remote add origin <adres-repozytorium-z-GitHuba>', 'git push -u origin main'],
+        opis: 'git remote add zapamiętuje adres repozytorium na GitHubie pod nazwą origin. git push wysyła commity - od teraz gałąź main na GitHubie wskazuje ten sam commit co u Ciebie. Opcja -u zapamiętuje to powiązanie, więc później wystarczy samo git push.',
+        lokalnie: { commity: ['C1', 'C2'], galezie: { main: 'C2' }, head: { typ: 'galaz', nazwa: 'main' } }, github: { galezie: { main: 'C2' } } },
+      { id: 'K5', tytul: 'Nowa gałąź', komendy: ['git checkout -b nowa-funkcja'],
+        opis: 'checkout -b tworzy gałąź nowa-funkcja dokładnie tam, gdzie stoisz, i od razu na nią przełącza. Pliki się nie zmieniają - obie gałęzie wskazują ten sam commit. Zmienia się tylko to, na co wskazuje HEAD.',
+        lokalnie: { commity: ['C1', 'C2'], galezie: { main: 'C2', 'nowa-funkcja': 'C2' }, head: { typ: 'galaz', nazwa: 'nowa-funkcja' } }, github: { galezie: { main: 'C2' } } },
+      { id: 'K6', tytul: 'Commit na nowej gałęzi', plik: { nazwa: 'plik2.txt', akcja: 'nowy', linie: P2 }, commit: 'C3',
+        opis: 'Nowy commit trafia na gałąź, na którą wskazuje HEAD, czyli nowa-funkcja. Gałąź main zostaje w miejscu.',
+        lokalnie: { commity: ['C1', 'C2', 'C3'], galezie: { main: 'C2', 'nowa-funkcja': 'C3' }, head: { typ: 'galaz', nazwa: 'nowa-funkcja' } }, github: { galezie: { main: 'C2' } } },
+      { id: 'K7', tytul: 'Kolejny commit na nowej gałęzi', plik: { nazwa: 'plik3.txt', akcja: 'nowy', linie: P3 }, commit: 'C4',
+        opis: 'Gałąź nowa-funkcja ma już dwa commity, których main nie zna. Gałąź main nadal wskazuje drugi commit.',
+        lokalnie: { commity: ['C1', 'C2', 'C3', 'C4'], galezie: { main: 'C2', 'nowa-funkcja': 'C4' }, head: { typ: 'galaz', nazwa: 'nowa-funkcja' } }, github: { galezie: { main: 'C2' } } },
+      { id: 'K8', tytul: 'Wysyłamy nową gałąź', komendy: ['git push -u origin nowa-funkcja'],
+        opis: 'Nowa gałąź trafia na GitHuba. Przy pierwszym wysłaniu nowej gałęzi podajemy jej nazwę i -u; później znowu wystarczy samo git push.',
+        lokalnie: { commity: ['C1', 'C2', 'C3', 'C4'], galezie: { main: 'C2', 'nowa-funkcja': 'C4' }, head: { typ: 'galaz', nazwa: 'nowa-funkcja' } }, github: { galezie: { main: 'C2', 'nowa-funkcja': 'C4' } } },
+      { id: 'K9', tytul: 'Wracamy na main', komendy: ['git checkout main'],
+        opis: 'Przełączenie na main zmienia pliki w folderze: plik2.txt i plik3.txt znikają, bo commit, na który wskazuje main, ich nie zawiera. Nic nie przepadło - są bezpiecznie zapisane w commitach gałęzi nowa-funkcja.',
+        lokalnie: { commity: ['C1', 'C2', 'C3', 'C4'], galezie: { main: 'C2', 'nowa-funkcja': 'C4' }, head: { typ: 'galaz', nazwa: 'main' } }, github: { galezie: { main: 'C2', 'nowa-funkcja': 'C4' } } },
+      { id: 'K10', tytul: 'Commit na main', plik: { nazwa: 'plik1.txt', akcja: 'dopisz', linie: [L3] }, commit: 'C5',
+        opis: 'Commit na main ma tego samego rodzica co pierwszy commit gałęzi nowa-funkcja. Historia się rozwidla: dwie gałęzie rozwijają się niezależnie.',
+        lokalnie: { commity: ['C1', 'C2', 'C3', 'C4', 'C5'], galezie: { main: 'C5', 'nowa-funkcja': 'C4' }, head: { typ: 'galaz', nazwa: 'main' } }, github: { galezie: { main: 'C2', 'nowa-funkcja': 'C4' } } },
+      { id: 'K11', tytul: 'Wysyłamy main', komendy: ['git push'],
+        opis: 'Wysyłamy nowy commit z main na GitHuba. To ważne: Pull Request scali gałęzie na GitHubie, więc GitHub musi znać ten commit.',
+        lokalnie: { commity: ['C1', 'C2', 'C3', 'C4', 'C5'], galezie: { main: 'C5', 'nowa-funkcja': 'C4' }, head: { typ: 'galaz', nazwa: 'main' } }, github: { galezie: { main: 'C5', 'nowa-funkcja': 'C4' } } },
+      { id: 'K12', tytul: 'Pull Request na GitHubie', komendy: [], naGithubie: 'Pull Request z nowa-funkcja do main, przycisk „Merge pull request"',
+        opis: 'Na GitHubie scalamy nowa-funkcja do main. Powstaje commit scalający z dwoma rodzicami - ale tylko na GitHubie. U Ciebie na dysku nic się jeszcze nie zmieniło.',
+        lokalnie: { commity: ['C1', 'C2', 'C3', 'C4', 'C5'], galezie: { main: 'C5', 'nowa-funkcja': 'C4' }, head: { typ: 'galaz', nazwa: 'main' } }, github: { galezie: { main: 'C6', 'nowa-funkcja': 'C4' } } },
+      { id: 'K13', tytul: 'Pobieramy zmiany', komendy: ['git pull'],
+        opis: 'git pull pobiera commit scalający z GitHuba i przesuwa Twoją gałąź main. W folderze pojawiają się plik2.txt i plik3.txt, a plik1.txt ma wszystkie trzy linie. Od tego stanu startuje symulator w zakładce 2.',
+        lokalnie: { commity: ['C1', 'C2', 'C3', 'C4', 'C5', 'C6'], galezie: { main: 'C6', 'nowa-funkcja': 'C4' }, head: { typ: 'galaz', nazwa: 'main' } }, github: { galezie: { main: 'C6', 'nowa-funkcja': 'C4' } } },
+    ],
   };
 })();
 
@@ -230,7 +270,23 @@ function opisPolozenia(stan) {
   return `Jesteś na: commicie ${skrot(c)} (odczepiony HEAD)`;
 }
 
-const LOGIKA = { commitPoId, skrot, migawka, stanStartowy, biezacyCommit, osiagalneZ, roznicaMigawek, roznicaLinii, domyslnyPlik, opisPolozenia };
+function katalogKroku(krok) {
+  const l = krok.lokalnie;
+  return migawka(maWlasne(l.galezie, l.head.nazwa) ? l.galezie[l.head.nazwa] : null);
+}
+
+function komendyKroku(krok) {
+  if (krok.commit) return ['git add .', `git commit -m "${commitPoId(krok.commit).opis}"`];
+  return krok.komendy || [];
+}
+
+function opisGalezi(galezie) {
+  const wpisy = Object.entries(galezie);
+  if (wpisy.length === 0) return 'brak gałęzi';
+  return wpisy.map(([n, id]) => `${n}: ${skrot(id)}`).join(', ');
+}
+
+const LOGIKA = { commitPoId, skrot, migawka, stanStartowy, biezacyCommit, osiagalneZ, roznicaMigawek, roznicaLinii, domyslnyPlik, opisPolozenia, katalogKroku, komendyKroku, opisGalezi };
 </script>
 <script id="widok">
 function pokazZakladke(id) {
