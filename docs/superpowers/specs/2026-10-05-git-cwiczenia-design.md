@@ -53,7 +53,7 @@ Gałąź główna: `main`. Druga gałąź: `nowa-funkcja`. Prawdziwe rozwidlenie
 Plik HTML zawiera jeden obiekt `SCENARIUSZ`:
 
 - `commity`: dla każdego - `id` (C1..C6), `hash` (40 znaków), `rodzice`, `tor` (`main` | `nowa-funkcja`), `opis`, `pliki` (pełna migawka: nazwa -> treść).
-- `kroki`: uporządkowana lista kroków budowy repo (sekcja 5), z których korzystają zakładka 1 i zakładka 3.
+- `kroki`: uporządkowana lista kroków budowy repo (sekcja 5), z których korzystają zakładka 1 i zakładka 3. Każdy krok ma: `id` (K1..K13), `komendy` / `czynnosc`, `lokalnie` = `{ commity: [id...], galezie: { nazwa -> commitId }, head: { typ: 'galaz', nazwa } }` (katalog = migawka commita, na który wskazuje HEAD; brak commita = pusty katalog) oraz `github` = `{ galezie: { nazwa -> commitId } }` (pusty obiekt przed K4). W K1 HEAD wskazuje gałąź `main`, która nie ma jeszcze commita (`galezie` puste, graf pusty).
 - `startoweGalezie`, `startowyHead`.
 
 Z tego obiektu powstają: graf i katalog w symulatorze, kroki zakładki 1, treści plików i komendy w zakładce 3, poprawne odpowiedzi sprawdzarki (np. zbiór commitów dla ćwiczenia 6 wyliczany z migawek). Ręcznie pisana jest tylko proza (objaśnienia, instrukcje GitHuba).
@@ -66,8 +66,9 @@ Bloki skryptu:
 
 1. `<script id="dane">` - `SCENARIUSZ` i teksty (tłumaczenia komunikatów, polecenia ćwiczeń).
 2. `<script id="logika">` - czyste funkcje bez DOM:
-   - `wykonaj(stan, linia) -> { stan, wynik }` - interpretuje komendę; `wynik` to lista linii z typem (`git` | `objasnienie` | `symulator`);
-   - `sprawdz(cwiczenie, stan, ostatniaKomenda) -> { zaliczone, komunikat }`;
+   - `wykonaj(stan, linia) -> { stan, wynik, wykonanie }` - interpretuje komendę; `wynik` to lista linii z typem (`git` | `objasnienie` | `symulator`); `wykonanie` = `{ forma: 'galaz' | 'hash' | 'nowaGalaz', argument }` wyłącznie wtedy, gdy logika wykonała jedną z trzech obsługiwanych form bez błędu, w każdym innym przypadku `null` (także dla komunikatów symulatora i błędów gita);
+   - `sprawdz(cwiczenie, stan, wykonanie) -> { zaliczone, komunikat }` - wołane tylko, gdy `wykonanie !== null`;
+   - `krokPostepu(postep, zdarzenie) -> postep` - czysta funkcja postępu ćwiczeń; `postep` = `{ biezace, wyniki: [ 'zaliczone' | 'pominiete' | null ] }`, zdarzenia: `wykonanie` (z wynikiem `sprawdz`), `pomin`, `restart`; jedno wykonanie zalicza najwyżej jedno (bieżące) ćwiczenie;
    - pomocnicze: `osiagalneZ(commit)`, `rozwiazRewizje(arg)`, `poprawnaNazwaGalezi(nazwa)`, `roznicaMigawek(a, b)`.
 3. `<script id="widok">` - rysowanie grafu, katalogu, terminala, zakładek; obsługa zdarzeń.
 
@@ -95,7 +96,7 @@ Zrzuty ekranu osadzone w HTML jako `data:` URI (base64), żeby pozostał jeden p
 | K12 | GitHub: Pull Request `nowa-funkcja` -> `main`, „Merge pull request" | **bez zmian** (C5) | `main` -> C6 |
 | K13 | `git pull` | C6 (pojawiają się `plik2.txt`, `plik3.txt`) | `main` -> C6 |
 
-Kolumna „Na GitHubie" jest pokazywana w krokach K4-K13, żeby było jasne, że scalenie PR zmienia stan na GitHubie, a pliki u kursanta zmieniają się dopiero po `git pull`.
+Kolumna „Na GitHubie" jest pokazywana w krokach K4-K13, żeby było jasne, że scalenie PR zmienia stan na GitHubie, a pliki u kursanta zmieniają się dopiero po `git pull`. W K12 commit C6 istnieje tylko w `github`, nie w `lokalnie`. „Wstecz" i „Dalej" pokazują zapisany stan danego kroku (stany nie są wyliczane przyrostowo), a znaczniki zmian w katalogu liczone są względem stanu poprzedniego kroku.
 
 ## 6. Zakładka 1 - „Jak powstało repo"
 
@@ -141,7 +142,9 @@ Kolumna „Na GitHubie" jest pokazywana w krokach K4-K13, żeby było jasne, że
 
 ### 7.3 Komendy
 
-Wejście: obcięcie spacji na brzegach, podział na tokeny z obsługą cudzysłowów `"..."`. Pusta linia - tylko nowy znak zachęty. Strzałki ↑/↓ przewijają historię komend.
+Wejście: obcięcie spacji na brzegach, podział na tokeny z obsługą cudzysłowów `"..."`. Pusta linia - tylko nowy znak zachęty. Niedomknięty cudzysłów - komunikat symulatora „Brakuje zamykającego cudzysłowu", bez wykonania. Strzałki ↑/↓ przewijają historię komend.
+
+Każde wejście inne niż udane wykonanie jednej z trzech obsługiwanych form pozostawia `stan` bez zmian i daje `wykonanie = null`.
 
 Komendy symulatora (komunikaty po polsku, typ `symulator`):
 
@@ -160,22 +163,26 @@ Komendy symulatora (komunikaty po polsku, typ `symulator`):
 | `git checkout <hash>` | 4-40 znaków szesnastkowych, bez rozróżniania wielkości liter, jednoznaczny prefiks hasha commita -> odczepiony HEAD |
 | `git checkout -b <nazwa>` | nowa gałąź na bieżącym commicie + przełączenie na nią |
 | `git checkout -b` (bez nazwy) | ``error: switch `b' requires a value`` |
+| `git checkout -b <nazwa>` przy kolizji z istniejącą gałęzią (`main/temat` gdy istnieje `main` albo `main` gdy istnieje `main/temat`) | `fatal: cannot lock ref 'refs/heads/<nazwa>': 'refs/heads/<istniejąca>' exists; cannot create 'refs/heads/<nazwa>'` |
+| `git checkout <gałąź lub hash> <dodatkowe>` | `error: pathspec '<pierwszy dodatkowy>' did not match any file(s) known to git` (jak w gicie; stan bez zmian) |
+| `git checkout ""` | `fatal: empty string is not a valid pathspec. please use . instead if you meant to match all paths` |
+| `git checkout -<nieznana opcja>` (każda opcja poza `-b` i `--`) | ``error: unknown switch `<x>'`` + `usage: git checkout [<options>] <branch>` (świadome uproszczenie: dalsza lista opcji gita pominięta) |
 | `git checkout -b <nazwa> <cokolwiek>` | komunikat symulatora: „W symulatorze nową gałąź tworzysz tam, gdzie stoisz: najpierw przełącz się na commit, potem git checkout -b nazwa" |
 | `git checkout HEAD...`, `@`, `-`, argument z `~` lub `^` | komunikat symulatora: „Ta forma działa w prawdziwym gicie, ale symulator jej nie obsługuje - użyj nazwy gałęzi albo hasha" |
 | `git checkout <nazwa pliku z bieżącej migawki>` lub `git checkout -- ...` | komunikat symulatora: „Przywracanie plików nie jest częścią tego ćwiczenia" |
 | `git checkout <inne>` | `error: pathspec '<inne>' did not match any file(s) known to git` |
 | `git <znana komenda gita>`: `add`, `commit`, `push`, `pull`, `fetch`, `merge`, `rebase`, `reset`, `restore`, `revert`, `stash`, `status`, `log`, `diff`, `show`, `branch`, `switch`, `init`, `clone`, `remote`, `config`, `tag` | komunikat symulatora: „W symulatorze tylko się poruszamy - tę komendę wykonasz we własnym repo (zakładka 3)" |
-| `git <nieznana>` | `git: '<x>' is not a git command. See 'git --help'.` + jeśli dokładnie jedna komenda z listy obsługiwanej lub znanej ma odległość edycyjną <= 2 (bez rozróżniania wielkości liter): pusta linia, `The most similar command is`, `\t<komenda>` |
+| `git <nieznana>` | `git: '<x>' is not a git command. See 'git --help'.` + jeśli dokładnie jedna komenda z listy obsługiwanej lub znanej ma odległość edycyjną <= 2 (bez rozróżniania wielkości liter): pusta linia, `The most similar command is`, `\t<komenda>`. **Świadome uproszczenie:** dobór podpowiedzi nie odtwarza algorytmu gita (np. git dla `co` podpowiada trzy komendy); dosłowna zgodność obowiązuje tylko dla pierwszej linii. |
 
 Kolejność rozstrzygania argumentu `checkout`: (1) dokładna nazwa gałęzi, (2) forma nieobsługiwana (`HEAD`, `@`, `-`, `~`, `^`), (3) nazwa pliku lub `--`, (4) prefiks hasha, (5) błąd pathspec.
 
-Poprawna nazwa gałęzi (uproszczone `check-ref-format`): niepusta; bez spacji i znaków sterujących; bez `~ ^ : ? * [ \`; bez `..` i `@{`; nie zaczyna się od `-` ani `.`; nie kończy się na `/`, `.` ani `.lock`; nie jest `@`. Polskie litery są dozwolone (jak w gicie).
+Poprawna nazwa gałęzi (uproszczone `check-ref-format`): niepusta; nie jest `HEAD` ani `@`; bez spacji i znaków sterujących; bez `~ ^ : ? * [ \`; bez `..`, `//` i `@{`; nie zaczyna się od `-` ani `/`; nie kończy się na `/` ani `.`; żadna część między `/` nie zaczyna się od `.` ani nie kończy na `.lock`. Polskie litery są dozwolone (jak w gicie). Osobno sprawdzana jest kolizja prefiksu z istniejącymi gałęziami (wiersz w tabeli wyżej).
 
 ### 7.4 Komunikaty gita i objaśnienia
 
 Komunikaty gita są dosłowne, po angielsku, jak w git 2.47.1 (zweryfikowane; Git for Windows nie ma tłumaczeń - angielski także przy `LANG=pl_PL.UTF-8`). Pod **każdym** komunikatem gita jest linia typu `objasnienie`: polskie tłumaczenie + wyjaśnienie, o co gitowi chodzi, wizualnie odróżniona (inny krój, lewa ramka, przygaszony kolor), żeby kursant wiedział, czego nie zobaczy w swojej konsoli.
 
-`<h7>` = 7-znakowy hash, `<opis>` = opis commita.
+`<h7>` = 7-znakowy hash (małe litery), `<arg>` = argument dokładnie w postaci wpisanej przez kursanta (np. `d7f1`, `D7F1B85`, pełny hash), `<opis>` = opis commita.
 
 | Sytuacja | Wynik gita | Objaśnienie (sens; ostateczne brzmienie w implementacji) |
 |---|---|---|
@@ -183,7 +190,7 @@ Komunikaty gita są dosłowne, po angielsku, jak w git 2.47.1 (zweryfikowane; Gi
 | gałąź, z innej gałęzi | `Switched to branch '<g>'` | Przełączono na gałąź g: HEAD wskazuje teraz gałąź g, a pliki wyglądają jak w commicie, na który ona wskazuje. |
 | gałąź, z odczepionego HEAD na innym commicie | `Previous HEAD position was <h7> <opis>` + `Switched to branch '<g>'` | Git przypomina, z którego commita wychodzisz; potem jak wyżej. |
 | gałąź, z odczepionego HEAD na tym samym commicie | `Switched to branch '<g>'` | jak wyżej |
-| hash, z gałęzi (także na ten sam commit) | pełne ostrzeżenie „Note: switching to '<h7>'. ... advice.detachedHead to false" + pusta linia + `HEAD is now at <h7> <opis>` | Jesteś w stanie odczepionego HEAD: oglądasz commit, ale nie jesteś na żadnej gałęzi. Git podpowiada `git switch -c` i `git switch -` - to nowsze odpowiedniki `git checkout -b nazwa` i powrotu; w tym ćwiczeniu używamy `checkout`. |
+| hash, z gałęzi (także na ten sam commit) | pełne ostrzeżenie „Note: switching to '<arg>'. ... advice.detachedHead to false" + pusta linia + `HEAD is now at <h7> <opis>` | Jesteś w stanie odczepionego HEAD: oglądasz commit, ale nie jesteś na żadnej gałęzi. Git podpowiada `git switch -c` i `git switch -` - to nowsze odpowiedniki `git checkout -b nazwa` i powrotu; w tym ćwiczeniu używamy `checkout`. |
 | hash, z odczepionego na innym commicie | `Previous HEAD position was <h7> <opis>` + `HEAD is now at <h7> <opis>` | Przeskoczyłeś z jednego commita na inny, nadal bez gałęzi. |
 | hash, z odczepionego na tym samym commicie | `HEAD is now at <h7> <opis>` | Już tu jesteś. |
 | `-b`, nowa poprawna nazwa | `Switched to a new branch '<g>'` | Utworzono gałąź g na bieżącym commicie i przełączono na nią; jeśli HEAD był odczepiony, już nie jest. |
@@ -196,7 +203,7 @@ Komunikaty gita są dosłowne, po angielsku, jak w git 2.47.1 (zweryfikowane; Gi
 Pełny tekst ostrzeżenia o odczepionym HEAD (dosłownie):
 
 ```
-Note: switching to '<h7>'.
+Note: switching to '<arg>'.
 
 You are in 'detached HEAD' state. You can look around, make experimental
 changes and commit them, and you can discard any commits you make in this
@@ -230,12 +237,12 @@ Start każdej sesji: stan startowy (sekcja 3). Ćwiczenia wykonuje się trzema f
 | 4 | Wróć na `main` | HEAD -> `main` | „Previous HEAD position was..." - tak wychodzisz z odczepionego HEAD. |
 | 5 | Przełącz się na commit, w którym pojawił się `plik3.txt` | HEAD na C4 - odczepiony albo przez dowolną gałąź wskazującą C4 | Gałąź `nowa-funkcja` wskazuje ten sam commit. |
 | 6 | Znajdź commit, w którym `plik1.txt` ma dwie linie i nie ma linii „ta linia powstala na main" | HEAD na commicie ze zbioru wyliczonego z migawek (C2, C3, C4) | „Ta sama treść `plik1.txt` jest też w ..." (wymienia pozostałe) - commit to migawka całego katalogu, a nie jednego pliku. |
-| 7 | Przełącz się na commit „Druga linia w plik1" i utwórz tam gałąź `poprawka` | gałąź `poprawka` -> C2 i HEAD -> `poprawka` | `-b` tworzy gałąź tam, gdzie stoisz, i kończy odczepiony HEAD. |
+| 7 | Przełącz się na commit „Druga linia w plik1" i utwórz tam gałąź `poprawka` | udane `git checkout -b poprawka` wykonane w trakcie tego ćwiczenia, gdy HEAD był na C2 (wynik: `poprawka` -> C2, HEAD -> `poprawka`); jeśli `poprawka` już istnieje, podpowiedź: „użyj restart i zacznij od nowa" | `-b` tworzy gałąź tam, gdzie stoisz, i kończy odczepiony HEAD. |
 | 8 | Przełącz się na commit scalający przez jego hash (nie przez `main`) | HEAD odczepiony na C6 | `checkout <hash>` odczepia HEAD, nawet gdy gałąź wskazuje ten sam commit. **Na koniec wróć na `main`.** |
 
 Zasady sprawdzarki:
 
-- Deterministyczna, uruchamiana po każdej komendzie `git checkout ...` zakończonej bez błędu (`fatal:`/`error:` nie uruchamia sprawdzenia); porównuje tylko `stan`.
+- Deterministyczna, uruchamiana tylko wtedy, gdy `wykonaj` zwróci `wykonanie !== null` (udana jedna z trzech obsługiwanych form); nie decyduje o tym tekst komunikatu. Porównuje `stan`, a w ćwiczeniu 7 także `wykonanie`.
 - Ćwiczenie zalicza się dopiero po takiej komendzie wpisanej w trakcie tego ćwiczenia - stan spełniony już na starcie ćwiczenia nie wystarcza. Komenda bez zmiany stanu (np. `Already on 'main'`) się liczy, bo kursant wpisał właściwą komendę.
 - „Podpowiedź" pokazuje formę komendy i skąd wziąć argument (np. „kliknij commit w grafie, żeby wkleić hash"), nigdy gotowy hash.
 - „Pomiń" przechodzi do następnego ćwiczenia bez zaliczenia (kropka postępu inna niż przy zaliczeniu).
@@ -250,14 +257,14 @@ Ponumerowane kroki; przy każdej komendzie i treści pliku przycisk „Kopiuj"; 
    - `git --version` - wymagana wersja co najmniej 2.28 (inaczej `git init -b` nie działa);
    - włączenie rozszerzeń plików w Eksploratorze (Widok -> Rozszerzenia nazw plików), inaczej powstanie `plik1.txt.txt`;
    - nowy folder `cwiczenia-git`; konsola w folderze: w pasku adresu Eksploratora wpisz `powershell` i Enter. Komendy są takie same w PowerShellu, cmd i Git Bashu.
-1. `git config user.name` i `git config user.email` - sprawdzenie; jeśli puste, komendy ustawienia.
-2. **Na GitHubie nowe, puste repo `cwiczenia-git` - bez README, bez .gitignore, bez licencji** (wytłuszczone; zrzut ekranu formularza). Inaczej pierwszy push zostanie odrzucony.
+1. `git config --global user.name` i `git config --global user.email` - sprawdzenie (działa poza repozytorium); jeśli puste: `git config --global user.name "Imię Nazwisko"` i `git config --global user.email "adres@z-githuba"`. Bez `--global` przed `git init` git zgłasza `fatal: not in a git directory`.
+2. **Na GitHubie nowe, puste repo `cwiczenia-git`, widoczność Public - bez README, bez .gitignore, bez licencji** (wytłuszczone; zrzut ekranu formularza). Inaczej pierwszy push zostanie odrzucony; Public jest potrzebne do widoku Insights -> Network na darmowym koncie.
 3. K1 `git init -b main` + dopisek: „Na GitHubie i w poradnikach spotkasz `master` albo `main` - to tylko nazwa gałęzi; w tym ćwiczeniu używamy `main`."
 4. K2-K3: Notatnik (treść do skopiowania), `git add .`, `git commit -m "..."` - zawsze z `-m`. Sprawdź: `git status` pokazuje „nothing to commit, working tree clean".
 5. K4: `git remote add origin <URL>` (URL ze strony pustego repo; zrzut), `git push -u origin main`. Uwaga: **okno logowania GitHuba (Git Credential Manager) może otworzyć się pod konsolą** - sprawdź pasek zadań. Odesłanie do ramki z promptem dla Claude Code.
 6. K5-K8: `git checkout -b nowa-funkcja`, C3, C4, `git push -u origin nowa-funkcja`.
 7. K9-K11: `git checkout main` (Sprawdź: `plik2.txt` i `plik3.txt` zniknęły z folderu), C5, **`git push` - KONIECZNIE przed założeniem Pull Requesta** (wytłuszczone). Sprawdź na GitHubie: na `main` w `plik1.txt` jest linia „ta linia powstala na main" - dopiero wtedy zakładaj PR.
-8. K12: Pull Request na GitHubie: „Compare & pull request" -> „Create pull request" -> „Merge pull request" -> „Confirm merge" (zrzut każdego kroku). „Delete branch" można pominąć. Bez wzmianki o innych metodach scalania.
+8. K12: Pull Request na GitHubie: „Compare & pull request" (jeśli baner zniknął: zakładka „Pull requests" -> „New pull request") -> **Sprawdź: `base: main` i `compare: nowa-funkcja`** -> „Create pull request" -> „Merge pull request" -> „Confirm merge" (zrzut każdego kroku). „Delete branch" można pominąć. Bez wzmianki o innych metodach scalania.
 9. K13: `git pull`. Sprawdź: w folderze są `plik2.txt` i `plik3.txt`. **Notatnik nie odświeża otwartego pliku - zamknij go i otwórz ponownie** (dotyczy też ćwiczeń po każdym `checkout`).
 10. GitHub -> Insights -> Network: to samo rozwidlenie co graf w symulatorze (zrzut).
 11. **Dla chętnych / w domu:** powtórz ćwiczenia 1-8 we własnym repo. Przed startem `git status` musi pokazywać czysty katalog. Hashe weź z listy commitów na GitHubie (przycisk kopiowania; zrzut). Ćwiczenie 7 tworzy u Ciebie gałąź `poprawka` - to w porządku. **Na koniec `git checkout main`.**
@@ -291,13 +298,14 @@ Narzędzie: Node 22, `node --test`, bez zależności i bez kroku budowania. `tes
 Zakres:
 
 1. **Komendy:** każdy wiersz tabel z 7.3 i 7.4 - wynik gita co do znaku (wzorce zweryfikowane na git 2.47.1) + obecność objaśnienia pod każdym komunikatem gita + poprawny nowy `stan`.
-2. **Rozstrzyganie argumentu:** kolejność z 7.3, prefiksy 3/4/7/40 znaków, wielkie litery, nazwy plików, `HEAD~1`.
-3. **Nazwy gałęzi:** poprawne (w tym z polskimi literami) i niepoprawne przypadki.
-4. **Ćwiczenia:** dla każdego z 8 - wszystkie poprawne rozwiązania, przykładowe błędne, reguła „tylko po udanej komendzie w trakcie ćwiczenia" (komenda z błędem nie zalicza), `restart` nie zmienia postępu.
-5. **Spójność scenariusza:** różnica migawek kolejnych commitów zgadza się z opisem kroku K; migawka C6 = `plik1.txt` z C5 + pliki z C4; pierwsze znaki hashy unikalne; zbiór dla ćwiczenia 6 = {C2, C3, C4}; osiągalność (z `nowa-funkcja` nieosiągalne tylko C5 i C6).
-6. **Typografia:** plik HTML nie zawiera znaków U+2014 i U+2013 ani encji `&mdash;`, `&ndash;` (test sprawdza kody znaków).
+2. **Rozstrzyganie argumentu i parser:** kolejność z 7.3, prefiksy 3/4/7/40 znaków, wielkie litery (pierwsza linia ostrzeżenia z argumentem w postaci wpisanej), nazwy plików, `HEAD~1`, nadmiarowy argument, `""`, nieznana opcja, niedomknięty cudzysłów.
+3. **Nazwy gałęzi:** poprawne (w tym z polskimi literami) i niepoprawne (`HEAD`, `a//b`, `a/.b`, `a.lock/b`, spacja, `-x`, `x.`), kolizje prefiksu (`main/temat`).
+4. **Ćwiczenia:** dla każdego z 8 - wszystkie poprawne rozwiązania i przykładowe błędne; odrzucone wejścia (błąd gita, komunikat symulatora, np. `git checkout HEAD~1` przy spełnionym już warunku ćwiczenia 6) nie zaliczają; ćwiczenie 7 nie zalicza się samym `git checkout poprawka`.
+5. **Postęp (`krokPostepu`):** pełne przejście 1-8, pomijanie, `restart` nie zmienia postępu, jedno wykonanie zalicza najwyżej jedno ćwiczenie, stan spełniony na starcie ćwiczenia nie zalicza.
+6. **Spójność scenariusza:** zmiana każdego commita liczona względem jego (pierwszego) rodzica zgadza się z opisem kroku K (C5 względem C2); przejścia katalogu między krokami (np. K8 -> K9: znikają `plik2.txt` i `plik3.txt`; K12 -> K13: pojawiają się) zgodne z `kroki`; rodzice C6 w kolejności (C5, C4); stany `lokalnie` i `github` każdego kroku spójne z `commity`; migawka C6 = `plik1.txt` z C5 + pliki z C4; pierwsze znaki hashy unikalne; zbiór dla ćwiczenia 6 = {C2, C3, C4}; osiągalność (z `nowa-funkcja` nieosiągalne tylko C5 i C6).
+7. **Typografia:** plik HTML nie zawiera znaków U+2014 i U+2013 ani encji `&mdash;`, `&ndash;` (test sprawdza kody znaków).
 
-Ręczny przegląd w Chrome (bez automatyzacji): trzy zakładki, animacje, odczepiony HEAD, przygaszanie, „Kopiuj" przy `file://`, zrzuty.
+Ręczny przegląd w Chrome (bez automatyzacji): trzy zakładki, animacje, odczepiony HEAD, przygaszanie, „Kopiuj" przy `file://`, zrzuty, szybkie kolejne komendy w trakcie animacji (graf, katalog, HEAD i postęp zgodne ze `stan`), przełączanie zakładek w trakcie ćwiczeń, „Wstecz"/„Dalej" w zakładce 1 w obu kierunkach.
 
 ## 11. Ryzyka i środki zaradcze
 

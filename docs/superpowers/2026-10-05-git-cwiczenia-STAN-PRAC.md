@@ -17,8 +17,9 @@ Gdzie jesteśmy w procesie (superpowers:brainstorming, ścieżka architektoniczn
 - [x] Sekcja 4: zakładki 1 i 3, technikalia, testy - **ZAAKCEPTOWANA 2026-10-07** (ze zrzutami ekranu GitHuba)
 - [x] Recenzja kierunku - **zamiast external-review: sam Codex `gpt-6.1-sol`, reasoning high** (decyzja użytkownika 2026-10-07; wywołanie: `codex exec -m gpt-6.1-sol -c model_reasoning_effort=high -s read-only --skip-git-repo-check -` z promptem na stdin). Przyjęte poprawki: patrz sekcja „Wynik recenzji kierunku".
 - [x] `git init -b main` w folderze projektu (zgoda użytkownika 2026-10-07)
-- [ ] **Spec w `docs/superpowers/specs/2026-10-05-git-cwiczenia-design.md` + self-review** <- TU WZNOWIĆ
-- [ ] recenzja spec (Codex sol high) + przegląd spec przez użytkownika
+- [x] Spec w `docs/superpowers/specs/2026-10-05-git-cwiczenia-design.md` + self-review
+- [x] Recenzja spec (Codex sol high): 12 uwag, wszystkie przyjęte przez użytkownika i wdrożone 2026-10-07
+- [ ] **Przegląd spec przez użytkownika** <- TU WZNOWIĆ
 - [ ] writing-plans -> plan, recenzja planu (Codex sol high), wybór trybu wykonania
 
 ## Cel i kontekst (ustalone)
