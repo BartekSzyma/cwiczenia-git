@@ -396,10 +396,96 @@ function nieznanaKomendaGita(pod) {
   return wynik;
 }
 
-// Wersja minimalna - pełna obsługa w Task 6.
+function ostrzezenieOdczepiony(argument) {
+  return [
+    `Note: switching to '${argument}'.`, '',
+    "You are in 'detached HEAD' state. You can look around, make experimental",
+    'changes and commit them, and you can discard any commits you make in this',
+    'state without impacting any branches by switching back to a branch.', '',
+    'If you want to create a new branch to retain commits you create, you may',
+    'do so (now or later) by using -c with the switch command. Example:', '',
+    '  git switch -c <new-branch-name>', '',
+    'Or undo this operation with:', '',
+    '  git switch -', '',
+    'Turn off this advice by setting config variable advice.detachedHead to false', '',
+  ];
+}
+
+const polozenieCommita = (id) => `${skrot(id)} ${commitPoId(id).opis}`;
+
+function naGalaz(stan, nazwa) {
+  const wykonanie = { forma: 'galaz', argument: nazwa };
+  if (stan.head.typ === 'galaz' && stan.head.nazwa === nazwa) {
+    return { stan, wynik: [git(`Already on '${nazwa}'`), obj(OBJASNIENIA.juzNaGalezi(nazwa))], wykonanie, akcja: null };
+  }
+  const cel = stan.galezie[nazwa];
+  const poprzedni = stan.head.typ === 'odczepiony' && stan.head.commit !== cel ? stan.head.commit : null;
+  const wynik = [];
+  if (poprzedni) wynik.push(git(`Previous HEAD position was ${polozenieCommita(poprzedni)}`));
+  wynik.push(git(`Switched to branch '${nazwa}'`));
+  wynik.push(obj(poprzedni ? OBJASNIENIA.wyjscieZOdczepionego(skrot(poprzedni), nazwa) : OBJASNIENIA.przelaczono(nazwa)));
+  return { stan: { ...stan, head: { typ: 'galaz', nazwa }, poprzedniHead: stan.head }, wynik, wykonanie, akcja: null };
+}
+
+function naCommit(stan, id, argument) {
+  const teraz = git(`HEAD is now at ${polozenieCommita(id)}`);
+  let wynik;
+  if (stan.head.typ === 'galaz') {
+    wynik = [...ostrzezenieOdczepiony(argument).map(git), teraz, obj(OBJASNIENIA.odczepiony(argument, skrot(id)))];
+  } else if (stan.head.commit !== id) {
+    const p = stan.head.commit;
+    wynik = [git(`Previous HEAD position was ${polozenieCommita(p)}`), teraz, obj(OBJASNIENIA.przeskok(skrot(p), skrot(id)))];
+  } else {
+    wynik = [teraz, obj(OBJASNIENIA.juzNaCommicie(skrot(id)))];
+  }
+  return { stan: { ...stan, head: { typ: 'odczepiony', commit: id }, poprzedniHead: stan.head }, wynik, wykonanie: { forma: 'hash', argument }, akcja: null };
+}
+
+function nowaGalaz(stan, dalsze) {
+  const nic = (wynik) => ({ stan, wynik, wykonanie: null, akcja: null });
+  if (dalsze.length === 0) return nic([git("error: switch `b' requires a value"), obj(OBJASNIENIA.brakNazwy)]);
+  if (dalsze.length > 1) return nic([sym(TEKSTY.bStartPoint)]);
+  const nazwa = dalsze[0];
+  if (!poprawnaNazwaGalezi(nazwa)) {
+    return nic([git(`fatal: '${nazwa}' is not a valid branch name`), git('hint: See `man git check-ref-format`'),
+      git('hint: Disable this message with "git config advice.refSyntax false"'), obj(OBJASNIENIA.zlaNazwa(nazwa))]);
+  }
+  const istniejace = Object.keys(stan.galezie);
+  // Git for Windows nie odróżnia wielkości liter w nazwach gałęzi (zweryfikowane na 2.47.1).
+  const taSama = istniejace.find((g) => g.toLowerCase() === nazwa.toLowerCase());
+  if (taSama !== undefined) return nic([git(`fatal: a branch named '${nazwa}' already exists`), obj(OBJASNIENIA.galazIstnieje(nazwa, taSama))]);
+  const kolizja = istniejace.find((g) => g.toLowerCase().startsWith(nazwa.toLowerCase() + '/') || nazwa.toLowerCase().startsWith(g.toLowerCase() + '/'));
+  if (kolizja !== undefined) {
+    return nic([git(`fatal: cannot lock ref 'refs/heads/${nazwa}': 'refs/heads/${kolizja}' exists; cannot create 'refs/heads/${nazwa}'`), obj(OBJASNIENIA.kolizja(nazwa, kolizja))]);
+  }
+  const galezie = { ...stan.galezie, [nazwa]: biezacyCommit(stan) };
+  return {
+    stan: { head: { typ: 'galaz', nazwa }, galezie, poprzedniHead: stan.head },
+    wynik: [git(`Switched to a new branch '${nazwa}'`), obj(OBJASNIENIA.nowaGalaz(nazwa))],
+    wykonanie: { forma: 'nowaGalaz', argument: nazwa },
+    akcja: null,
+  };
+}
+
 function checkout(stan, argumenty) {
-  if (argumenty.length === 0) return { stan, wynik: [obj(OBJASNIENIA.checkoutBezArgumentu)], wykonanie: null, akcja: null };
-  return { stan, wynik: [git(`error: pathspec '${argumenty[0]}' did not match any file(s) known to git`), obj(OBJASNIENIA.pathspec(argumenty[0]))], wykonanie: null, akcja: null };
+  const nic = (wynik) => ({ stan, wynik, wykonanie: null, akcja: null });
+  if (argumenty.length === 0) return nic([obj(OBJASNIENIA.checkoutBezArgumentu)]);
+  const [pierwszy, ...dalsze] = argumenty;
+  if (pierwszy === '-b') return nowaGalaz(stan, dalsze);
+  if (pierwszy === '--') return nic([sym(TEKSTY.przywracaniePlikow)]);
+  if (pierwszy === '-') return nic([sym(TEKSTY.nieobslugiwanaForma)]);
+  const uzycie = git('usage: git checkout [<options>] <branch>');
+  if (pierwszy.startsWith('--')) return nic([git(`error: unknown option \`${pierwszy.slice(2)}'`), uzycie, obj(OBJASNIENIA.nieznanaOpcja(pierwszy))]);
+  if (pierwszy.startsWith('-')) return nic([git(`error: unknown switch \`${pierwszy[1]}'`), uzycie, obj(OBJASNIENIA.nieznanaOpcja(pierwszy))]);
+  if (pierwszy === '') return nic([git('fatal: empty string is not a valid pathspec. please use . instead if you meant to match all paths'), obj(OBJASNIENIA.pustyNapis)]);
+  const cel = rozwiazRewizje(stan, pierwszy);
+  if (cel.typ === 'nieobslugiwana') return nic([sym(TEKSTY.nieobslugiwanaForma)]);
+  if (cel.typ === 'plik') return nic([sym(TEKSTY.przywracaniePlikow)]);
+  const bledne = cel.typ === 'brak' ? argumenty : dalsze;
+  if (bledne.length > 0) {
+    return nic([...bledne.map((x) => git(`error: pathspec '${x}' did not match any file(s) known to git`)), obj(OBJASNIENIA.pathspec(bledne[0]))]);
+  }
+  return cel.typ === 'galaz' ? naGalaz(stan, cel.nazwa) : naCommit(stan, cel.id, pierwszy);
 }
 
 function wykonaj(stan, linia) {
