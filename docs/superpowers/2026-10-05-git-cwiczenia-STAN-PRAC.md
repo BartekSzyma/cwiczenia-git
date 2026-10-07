@@ -22,7 +22,10 @@ Gdzie jesteśmy w procesie (superpowers:brainstorming, ścieżka architektoniczn
 - [x] Przegląd spec przez użytkownika - zaakceptowany 2026-10-07
 - [x] Plan `docs/superpowers/plans/2026-10-07-git-cwiczenia-symulator.md` (13 zadań) + recenzja Codex sol high: 10 uwag przyjętych i wdrożonych 2026-10-08
 - [x] Decyzje: wykonanie Native (Claude w sesji, gałąź `symulator`), na końcu recenzja całej gałęzi Codexem sol high; 8 zrzutów GitHuba robi użytkownik, przechodząc zakładkę 3 (Task 12, krok 6)
-- [ ] **Implementacja wg planu** <- TU WZNOWIĆ (sprawdź `git log` na gałęzi `symulator` i checkboxy w planie)
+- [x] Implementacja wg planu na gałęzi `symulator` - Task 1-11 gotowe, Task 12 kroki 1-5 (narzędzie `tools/osadz-zrzuty.mjs`) gotowe; `npm test` 72/72 (2026-10-08). Rejestr decyzji: `.superpowers/sdd/2026-10-07-git-cwiczenia-symulator/progress.md` (git-ignored).
+- [x] Recenzja całej gałęzi Codexem sol high: poprawiona obsługa klawiatury (commit `3cd826c`); 2 drobne uwagi odłożone (kolory przy gałęzi o nazwie liczbowej, krawędź C4->C6 przecina etykietę `nowa-funkcja`).
+- [ ] **Użytkownik: 8 zrzutów GitHuba do `zrzuty/` (nazwy w planie, Task 12 krok 6) przy przejściu zakładki 3 + ręczny test „Kopiuj" w prawdziwym Chrome przy `file://`** <- TU WZNOWIĆ
+- [ ] Potem: `node tools/osadz-zrzuty.mjs`, test kompletu zrzutów (Task 12 kroki 7-10), Task 13, decyzja o scaleniu `symulator` -> `main`
 
 ## Cel i kontekst (ustalone)
 
