@@ -605,6 +605,198 @@ function pomin(sesja) {
 const LOGIKA = { commitPoId, skrot, migawka, stanStartowy, biezacyCommit, osiagalneZ, roznicaMigawek, roznicaLinii, domyslnyPlik, opisPolozenia, katalogKroku, komendyKroku, opisGalezi, tokenizuj, poprawnaNazwaGalezi, rozwiazRewizje, wykonaj, commityPasujace, sprawdz, krokPostepu, nowaSesja, przetworz, pomin };
 </script>
 <script id="widok">
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const KOLORY_GALEZI = { 'main': '#2563eb', 'nowa-funkcja': '#16a34a' };
+const PALETA_DODATKOWA = ['#9333ea', '#db2777', '#0891b2', '#b45309'];
+const GRAF = { x0: 140, dx: 110, y: { 'main': 140, 'nowa-funkcja': 310 }, szerokosc: 140 + 5 * 110 + 100, wysokosc: 380 };
+
+function htmlEl(tag, atrybuty = {}, ...dzieci) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(atrybuty)) {
+    if (k === 'html') e.innerHTML = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v);
+  }
+  for (const d of dzieci.flat()) if (d !== null && d !== undefined && d !== false && d !== '') e.append(d);
+  return e;
+}
+
+function svgEl(nazwa, atrybuty = {}, rodzic = null) {
+  const e = document.createElementNS(SVG_NS, nazwa);
+  for (const [k, v] of Object.entries(atrybuty)) e.setAttribute(k, v);
+  if (rodzic) rodzic.appendChild(e);
+  return e;
+}
+
+function nowySvg(id) {
+  return svgEl('svg', { id, class: 'graf', role: 'img', 'aria-label': 'Graf commitów repozytorium' });
+}
+
+const maKolorStaly = (nazwa) => Object.prototype.hasOwnProperty.call(KOLORY_GALEZI, nazwa);
+
+function kolorGalezi(nazwa, galezie) {
+  if (maKolorStaly(nazwa)) return KOLORY_GALEZI[nazwa];
+  const dodatkowe = Object.keys(galezie).filter((g) => !maKolorStaly(g));
+  return PALETA_DODATKOWA[Math.max(0, dodatkowe.indexOf(nazwa)) % PALETA_DODATKOWA.length];
+}
+
+function pozycja(id) {
+  const i = SCENARIUSZ.commity.findIndex((c) => c.id === id);
+  return { x: GRAF.x0 + i * GRAF.dx, y: GRAF.y[SCENARIUSZ.commity[i].tor] };
+}
+
+function rysujGraf(svg, { commity, galezie, head, osiagalne, naKlik }) {
+  const granice = { minX: 0, minY: 0, maxX: GRAF.szerokosc, maxY: GRAF.wysokosc };
+  const obejmij = (x1, y1, x2, y2) => {
+    granice.minX = Math.min(granice.minX, x1); granice.minY = Math.min(granice.minY, y1);
+    granice.maxX = Math.max(granice.maxX, x2); granice.maxY = Math.max(granice.maxY, y2);
+  };
+  let tlo = svg.querySelector('g.tlo');
+  if (!tlo) tlo = svgEl('g', { class: 'tlo' }, svg);
+  tlo.replaceChildren();
+  let headG = svg.querySelector('g.head-etykieta');
+  if (!headG) {
+    headG = svgEl('g', { class: 'head-etykieta' }, svg);
+    svgEl('line', { class: 'head-strzalka', stroke: '#a16207', 'stroke-width': 2 }, headG);
+    svgEl('polygon', { class: 'head-grot', fill: '#a16207' }, headG);
+    svgEl('rect', { x: -26, y: 0, width: 52, height: 22, rx: 4 }, headG);
+    svgEl('text', { x: 0, y: 15, 'text-anchor': 'middle' }, headG).textContent = 'HEAD';
+    headG.style.transition = 'none';
+    requestAnimationFrame(() => requestAnimationFrame(() => { headG.style.transition = ''; }));
+  }
+  svg.appendChild(headG);
+
+  const widoczne = new Set(commity);
+  const aktywne = new Set(osiagalne);
+
+  for (const [tor, y] of Object.entries(GRAF.y)) {
+    if (!commity.some((id) => commitPoId(id).tor === tor)) continue;
+    svgEl('text', { x: 10, y: y + 5, class: 'nazwa-toru', fill: KOLORY_GALEZI[tor] }, tlo).textContent = tor;
+  }
+
+  for (const id of commity) {
+    for (const r of commitPoId(id).rodzice) {
+      if (!widoczne.has(r)) continue;
+      const a = pozycja(r), b = pozycja(id);
+      const tor = commitPoId(id).tor === 'main' ? commitPoId(r).tor : commitPoId(id).tor;
+      const d = a.y === b.y ? `M ${a.x} ${a.y} L ${b.x} ${b.y}` : `M ${a.x} ${a.y} C ${a.x + 60} ${a.y}, ${b.x - 60} ${b.y}, ${b.x} ${b.y}`;
+      svgEl('path', { d, class: 'krawedz' + (aktywne.has(id) ? '' : ' przygaszona'), stroke: KOLORY_GALEZI[tor] }, tlo);
+    }
+  }
+
+  const biezacy = head ? (head.typ === 'galaz' ? galezie[head.nazwa] : head.commit) : undefined;
+  for (const id of commity) {
+    const c = commitPoId(id), p = pozycja(id);
+    const g = svgEl('g', { class: 'commit' + (aktywne.has(id) ? '' : ' przygaszony') + (id === biezacy ? ' biezacy' : ''), transform: `translate(${p.x} ${p.y})` }, tlo);
+    svgEl('circle', { r: 16, stroke: KOLORY_GALEZI[c.tor] }, g);
+    svgEl('text', { y: 36, 'text-anchor': 'middle', class: 'hash' }, g).textContent = c.hash.slice(0, 7);
+    svgEl('text', { y: 51, 'text-anchor': 'middle', class: 'opis' }, g).textContent = c.opis.length > 18 ? c.opis.slice(0, 17) + '…' : c.opis;
+    svgEl('title', {}, g).textContent = `${c.hash.slice(0, 7)} ${c.opis}` + (naKlik ? ' (kliknij, żeby wkleić hash do terminala)' : '');
+    if (naKlik) { g.style.cursor = 'pointer'; g.addEventListener('click', () => naKlik(id)); }
+  }
+
+  const naCommicie = {};
+  for (const [nazwa, id] of Object.entries(galezie)) (naCommicie[id] ||= []).push(nazwa);
+  for (const [id, nazwy] of Object.entries(naCommicie)) {
+    if (!widoczne.has(id)) continue;
+    const p = pozycja(id);
+    if (head && head.typ === 'galaz') nazwy.sort((a, b) => (a === head.nazwa) - (b === head.nazwa));
+    nazwy.forEach((nazwa, i) => {
+      const szer = nazwa.length * 7.5 + 16;
+      obejmij(p.x - szer / 2, p.y - 48 - 26 * i, p.x + szer / 2, p.y - 26 - 26 * i);
+      const g = svgEl('g', { class: 'etykieta', transform: `translate(${p.x - szer / 2} ${p.y - 48 - 26 * i})` }, tlo);
+      svgEl('rect', { width: szer, height: 22, rx: 4, fill: kolorGalezi(nazwa, galezie) }, g);
+      svgEl('text', { x: szer / 2, y: 15, 'text-anchor': 'middle' }, g).textContent = nazwa;
+    });
+  }
+
+  if (biezacy && widoczne.has(biezacy)) {
+    const p = pozycja(biezacy);
+    const odczepiony = head.typ === 'odczepiony';
+    const linia = headG.querySelector('.head-strzalka');
+    const grot = headG.querySelector('.head-grot');
+    let x, y;
+    if (odczepiony) {
+      // HEAD obok kółka, strzałka prosto na commit - wyraźnie inaczej niż HEAD wskazujący gałąź.
+      x = p.x + 58; y = p.y - 11;
+      for (const [k, v] of Object.entries({ x1: -26, y1: 11, x2: -36, y2: 11 })) linia.setAttribute(k, v);
+      grot.setAttribute('points', '-35,6 -35,16 -42,11');
+    } else {
+      // Gałąź wskazywana przez HEAD leży na szczycie stosu etykiet tego commita.
+      const n = naCommicie[biezacy].length;
+      x = p.x; y = p.y - 48 - 26 * (n - 1) - 34;
+      for (const [k, v] of Object.entries({ x1: 0, y1: 22, x2: 0, y2: 30 })) linia.setAttribute(k, v);
+      grot.setAttribute('points', '-5,29 5,29 0,35');
+    }
+    obejmij(x - 42, y, x + 26, y + 36);
+    headG.style.display = '';
+    headG.classList.toggle('odczepiony', odczepiony);
+    headG.style.transform = `translate(${x}px, ${y}px)`;
+  } else {
+    headG.style.display = 'none';
+  }
+  svg.setAttribute('viewBox', `${granice.minX - 8} ${granice.minY - 8} ${granice.maxX - granice.minX + 16} ${granice.maxY - granice.minY + 16}`);
+}
+
+// pokazUsuniete = false przy samym wyborze pliku - animacja znikania nie odtwarza się ponownie.
+function rysujKatalog(kontener, { pliki, poprzednie, wybrany, naWybor, pokazUsuniete = true }) {
+  const r = roznicaMigawek(poprzednie, pliki);
+  const nazwy = [...new Set([...Object.keys(pliki), ...(pokazUsuniete ? r.usuniete : [])])].sort();
+  const lista = htmlEl('ul');
+  for (const n of nazwy) {
+    const usuniety = r.usuniete.includes(n);
+    const znak = r.dodane.includes(n) ? ['+ nowy', 'plus'] : r.zmienione.includes(n) ? ['~ zmieniony', 'tylda'] : usuniety ? ['- zniknął', 'minus'] : null;
+    lista.append(htmlEl('li', { class: [n === wybrany ? 'wybrany' : '', usuniety ? 'usuniety' : ''].join(' ').trim(), title: 'Kliknij, żeby zobaczyć treść', onclick: () => naWybor(n) },
+      htmlEl('span', {}, n), znak ? htmlEl('span', { class: 'znacznik ' + znak[1] }, znak[0]) : null));
+  }
+  const podglad = htmlEl('div', { class: 'podglad' });
+  if (wybrany && (Object.prototype.hasOwnProperty.call(pliki, wybrany) || Object.prototype.hasOwnProperty.call(poprzednie, wybrany))) {
+    const linie = roznicaLinii(poprzednie[wybrany] || [], pliki[wybrany] || []);
+    podglad.append(htmlEl('div', {}, htmlEl('strong', {}, wybrany + ':')),
+      htmlEl('pre', {}, ...linie.map((l) => htmlEl('div', { class: l.typ === '+' ? 'linia-plus' : l.typ === '-' ? 'linia-minus' : '' }, (l.typ === '=' ? '  ' : l.typ + ' ') + l.tekst))));
+  }
+  kontener.replaceChildren(htmlEl('h2', {}, 'Katalog roboczy'),
+    nazwy.length ? lista : htmlEl('p', { class: 'pusty-katalog' }, 'Katalog jest pusty.'), podglad);
+}
+
+const W = { sesja: null, pliki: {}, poprzedniePliki: {}, wybranyPlik: null, historiaKomend: [], pozycjaHistorii: 0, zaliczenie: null, podpowiedz: false };
+
+function budujSymulator() {
+  W.sesja = nowaSesja();
+  W.pliki = migawka(biezacyCommit(W.sesja.stan));
+  W.poprzedniePliki = W.pliki;
+  document.getElementById('symulator').replaceChildren(htmlEl('div', { class: 'uklad-symulatora' },
+    htmlEl('div', { class: 'panel obszar-graf' }, htmlEl('h2', {}, 'Graf repozytorium (czas płynie od lewej do prawej)'), nowySvg('sym-graf'),
+      htmlEl('div', { id: 'sym-polozenie', class: 'polozenie' }), htmlEl('div', { id: 'sym-odczepiony' })),
+    htmlEl('div', { class: 'panel obszar-cwiczenie cwiczenie', id: 'sym-cwiczenie' }),
+    htmlEl('div', { class: 'obszar-terminal', id: 'sym-obszar-terminala' }),
+    htmlEl('div', { class: 'panel obszar-katalog katalog', id: 'sym-katalog' })));
+  odswiezSymulator();
+}
+
+function rysujKatalogSym(pokazUsuniete = true) {
+  rysujKatalog(document.getElementById('sym-katalog'), {
+    pliki: W.pliki, poprzednie: W.poprzedniePliki, wybrany: W.wybranyPlik, pokazUsuniete,
+    naWybor: (n) => { W.wybranyPlik = n; rysujKatalogSym(false); },
+  });
+}
+
+function odswiezSymulator() {
+  const { stan } = W.sesja;
+  const biezacy = biezacyCommit(stan);
+  rysujGraf(document.getElementById('sym-graf'), {
+    commity: SCENARIUSZ.commity.map((c) => c.id), galezie: stan.galezie, head: stan.head,
+    osiagalne: osiagalneZ(biezacy), naKlik: typeof wklejHash === 'function' ? wklejHash : null,
+  });
+  document.getElementById('sym-polozenie').textContent = opisPolozenia(stan);
+  document.getElementById('sym-odczepiony').replaceChildren(...(stan.head.typ === 'odczepiony'
+    ? [htmlEl('div', { class: 'pasek-odczepiony' }, htmlEl('strong', {}, 'Odczepiony HEAD: nie jesteś na żadnej gałęzi. '),
+        'HEAD wskazuje bezpośrednio commit. Żeby wrócić, przełącz się na gałąź (git checkout main) albo utwórz tu nową (git checkout -b nazwa).')]
+    : []));
+  W.wybranyPlik = domyslnyPlik(W.pliki, W.poprzedniePliki, W.wybranyPlik);
+  rysujKatalogSym();
+}
+
 function pokazZakladke(id) {
   for (const b of document.querySelectorAll('.zakladki button')) b.setAttribute('aria-selected', String(b.dataset.zakladka === id));
   for (const s of document.querySelectorAll('.panel-zakladki')) s.hidden = s.id !== id;
@@ -613,6 +805,7 @@ function pokazZakladke(id) {
 
 function start() {
   for (const b of document.querySelectorAll('.zakladki button')) b.addEventListener('click', () => pokazZakladke(b.dataset.zakladka));
+  budujSymulator();
   pokazZakladke('historia');
 }
 
