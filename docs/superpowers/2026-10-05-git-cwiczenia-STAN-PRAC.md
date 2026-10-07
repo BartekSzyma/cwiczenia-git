@@ -19,8 +19,10 @@ Gdzie jesteśmy w procesie (superpowers:brainstorming, ścieżka architektoniczn
 - [x] `git init -b main` w folderze projektu (zgoda użytkownika 2026-10-07)
 - [x] Spec w `docs/superpowers/specs/2026-10-05-git-cwiczenia-design.md` + self-review
 - [x] Recenzja spec (Codex sol high): 12 uwag, wszystkie przyjęte przez użytkownika i wdrożone 2026-10-07
-- [ ] **Przegląd spec przez użytkownika** <- TU WZNOWIĆ
-- [ ] writing-plans -> plan, recenzja planu (Codex sol high), wybór trybu wykonania
+- [x] Przegląd spec przez użytkownika - zaakceptowany 2026-10-07
+- [x] Plan `docs/superpowers/plans/2026-10-07-git-cwiczenia-symulator.md` (13 zadań) + recenzja Codex sol high: 10 uwag przyjętych i wdrożonych 2026-10-08
+- [x] Decyzje: wykonanie Native (Claude w sesji, gałąź `symulator`), na końcu recenzja całej gałęzi Codexem sol high; 8 zrzutów GitHuba robi użytkownik, przechodząc zakładkę 3 (Task 12, krok 6)
+- [ ] **Implementacja wg planu** <- TU WZNOWIĆ (sprawdź `git log` na gałęzi `symulator` i checkboxy w planie)
 
 ## Cel i kontekst (ustalone)
 

@@ -238,7 +238,7 @@ svg.graf { width: 100%; height: auto; display: block; }
 .katalog li.wybrany { background: #eff6ff; }
 .znacznik { font-weight: 700; font-family: "Segoe UI", sans-serif; font-size: 12px; }
 .znacznik.plus { color: var(--plus); } .znacznik.tylda { color: var(--tylda); } .znacznik.minus { color: var(--minus); }
-.katalog li.usuniety { color: var(--minus); text-decoration: line-through; animation: znikanie 1.8s forwards; }
+.katalog li.usuniety { color: var(--minus); text-decoration: line-through; animation: znikanie 1.8s forwards; pointer-events: none; }
 @keyframes znikanie { 0%, 60% { opacity: 1; } 100% { opacity: 0; } }
 .podglad { margin-top: 10px; border-top: 1px solid var(--ramka); padding-top: 8px; }
 .podglad pre { margin: 0; white-space: pre-wrap; font-size: 13px; }
@@ -919,7 +919,7 @@ git commit -m "Tokenizer, walidacja nazw gałęzi i rozstrzyganie argumentu chec
 - [ ] **Step 1: Napisz helpery `tests/pomocnicze.mjs`**
 
 ```js
-import { zaladuj } from './zaladuj.mjs';
+import { zaladuj, j } from './zaladuj.mjs';
 
 export const A = zaladuj();
 
@@ -928,8 +928,9 @@ export function seria(linie, stan = A.stanStartowy()) {
   for (const linia of linie) { r = A.wykonaj(stan, linia); stan = r.stan; }
   return r;
 }
-export const gitLinie = (r) => r.wynik.filter((l) => l.typ === 'git').map((l) => l.tekst);
-export const typy = (r) => r.wynik.map((l) => l.typ);
+// Tablice z realmu vm normalizujemy przez j(), inaczej assert/strict odrzuci je przez inny prototyp.
+export const gitLinie = (r) => j(r.wynik.filter((l) => l.typ === 'git').map((l) => l.tekst));
+export const typy = (r) => j(r.wynik.map((l) => l.typ));
 export function objasnionyPoGicie(r) {
   const t = typy(r);
   const ostatni = t.lastIndexOf('git');
@@ -997,6 +998,8 @@ test('literówka w komendzie gita: komunikat gita z podpowiedzią', () => {
   assert.deepEqual(gitLinie(seria(['git Checkout main'])), ["git: 'Checkout' is not a git command. See 'git --help'.", '', 'The most similar command is', '\tcheckout']);
   assert.deepEqual(gitLinie(seria(['git stauts'])), ["git: 'stauts' is not a git command. See 'git --help'.", '', 'The most similar command is', '\tstatus']);
   assert.deepEqual(gitLinie(seria(['git xyzabc'])), ["git: 'xyzabc' is not a git command. See 'git --help'."]);
+  // dwie komendy w odległości <= 2 (add, tag) - bez podpowiedzi
+  assert.deepEqual(gitLinie(seria(['git ad'])), ["git: 'ad' is not a git command. See 'git --help'."]);
   for (const linia of ['git swtich main', 'git xyzabc']) assert.ok(objasnionyPoGicie(seria([linia])), linia);
 });
 
@@ -1088,10 +1091,8 @@ function odleglosc(a, b) {
 
 function nieznanaKomendaGita(pod) {
   const kandydaci = ['checkout', ...ZNANE_KOMENDY_GITA];
-  const odleglosci = kandydaci.map((k) => [k, odleglosc(pod.toLowerCase(), k)]);
-  const min = Math.min(...odleglosci.map((x) => x[1]));
-  const najblizsze = odleglosci.filter((x) => x[1] === min).map((x) => x[0]);
-  const podpowiedz = min <= 2 && najblizsze.length === 1 ? najblizsze[0] : null;
+  const bliskie = kandydaci.filter((k) => odleglosc(pod.toLowerCase(), k) <= 2);
+  const podpowiedz = bliskie.length === 1 ? bliskie[0] : null;
   const wynik = [git(`git: '${pod}' is not a git command. See 'git --help'.`)];
   if (podpowiedz) wynik.push(git(''), git('The most similar command is'), git('\t' + podpowiedz));
   wynik.push(obj(OBJASNIENIA.nieKomendaGita(pod, podpowiedz)));
@@ -1255,6 +1256,8 @@ test('błędy pathspec, pusty napis, nieznane opcje', () => {
   assert.deepEqual(gitLinie(bezZmian('git checkout f0b')), [PATHSPEC('f0b')]);
   const naNowej = seria(['git checkout nowa-funkcja']).stan;
   assert.deepEqual(gitLinie(bezZmian('git checkout main dodatkowy', naNowej)), [PATHSPEC('dodatkowy')]);
+  // jak git 2.47.1: błąd dla każdego nadmiarowego argumentu
+  assert.deepEqual(gitLinie(bezZmian('git checkout main jeden dwa', naNowej)), [PATHSPEC('jeden'), PATHSPEC('dwa')]);
   assert.deepEqual(gitLinie(bezZmian('git checkout nieistnieje drugi')), [PATHSPEC('nieistnieje'), PATHSPEC('drugi')]);
   assert.deepEqual(gitLinie(bezZmian('git checkout ""')), ['fatal: empty string is not a valid pathspec. please use . instead if you meant to match all paths']);
   assert.deepEqual(gitLinie(bezZmian('git checkout -x')), ["error: unknown switch `x'", 'usage: git checkout [<options>] <branch>']);
@@ -1418,7 +1421,7 @@ git commit -m "Interpreter: pełna obsługa git checkout z komunikatami gita 2.4
 
 **Interfaces:**
 - Consumes: `wykonaj`, `biezacyCommit`, `skrot`, `commitPoId`, `SCENARIUSZ` (Task 2-6).
-- Produces: `CWICZENIA[i] = { polecenie, podpowiedz, warunek, poZaliczeniu(kontekst) -> string }`, gdzie `warunek` to jedno z: `{ typ: 'naGalezi', nazwa }`, `{ typ: 'odczepionyNa', commit }`, `{ typ: 'plikPojawilSie', plik }`, `{ typ: 'plikMaLinie', plik, linie }`, `{ typ: 'nowaGalazNaCommicie', nazwa, opis }`; `commityPasujace(warunek) -> id[]`; `sprawdz(cwiczenie, stan, wykonanie) -> { zaliczone, komunikat }`; `krokPostepu(postep, zdarzenie) -> postep` (`postep = { biezace, wyniki }`, zdarzenia `{ typ: 'wykonanie', zaliczone }`, `{ typ: 'pomin' }`, `{ typ: 'restart' }`); `nowaSesja() -> { stan, postep }`; `przetworz(sesja, linia) -> { sesja, wynik, akcja, zaliczenie: null | { nr, komunikat } }`; `pomin(sesja) -> sesja`.
+- Produces: `CWICZENIA[i] = { polecenie, podpowiedz, warunek, poZaliczeniu(kontekst) -> string }`, gdzie `warunek` to jedno z: `{ typ: 'naGalezi', nazwa }`, `{ typ: 'odczepionyNa', commit }`, `{ typ: 'plikPojawilSie', plik }`, `{ typ: 'plikJakW', plik, commit }` (treść pliku taka jak w podanym commicie - linie brane z migawki), `{ typ: 'nowaGalazNaCommicie', nazwa, opis }`; `commityPasujace(warunek) -> id[]`; `sprawdz(cwiczenie, stan, wykonanie) -> { zaliczone, komunikat }`; `krokPostepu(postep, zdarzenie) -> postep` (`postep = { biezace, wyniki }`, zdarzenia `{ typ: 'wykonanie', zaliczone }`, `{ typ: 'pomin' }`, `{ typ: 'restart' }`); `nowaSesja() -> { stan, postep }`; `przetworz(sesja, linia) -> { sesja, wynik, akcja, zaliczenie: null | { nr, komunikat } }`; `pomin(sesja) -> sesja`.
 
 - [ ] **Step 1: Napisz test `tests/cwiczenia.test.mjs`**
 
@@ -1546,7 +1549,7 @@ const CWICZENIA = [
     warunek: { typ: 'naGalezi', nazwa: 'nowa-funkcja' },
     poZaliczeniu: () => 'Zobacz katalog: plik1.txt stracił linię „ta linia powstala na main" - gałąź nowa-funkcja jej nie zna. plik2.txt i plik3.txt zostały, bo powstały właśnie na tej gałęzi. Dwa ostatnie commity z main przygasły: nie należą do historii nowa-funkcja.' },
   { polecenie: 'Wróć na gałąź main.',
-    podpowiedz: 'Ta sama komenda co przed chwilą, tylko z inną nazwą gałęzi.',
+    podpowiedz: 'Użyj: git checkout <nazwa-gałęzi>. Nazwy gałęzi widać na kolorowych etykietach w grafie.',
     warunek: { typ: 'naGalezi', nazwa: 'main' },
     poZaliczeniu: () => 'Linia „ta linia powstala na main" wróciła - jesteś znowu w stanie po scaleniu. Gałąź to tylko wskaźnik: przełączenie podmienia pliki na te z commita, na który gałąź wskazuje.' },
   { polecenie: 'Przełącz się na pierwszy commit w historii.',
@@ -1558,12 +1561,12 @@ const CWICZENIA = [
     warunek: { typ: 'naGalezi', nazwa: 'main' },
     poZaliczeniu: () => 'Git wypisał „Previous HEAD position was..." - przypomina, z którego commita wychodzisz. Tak opuszcza się odczepiony HEAD: przełączając się na gałąź.' },
   { polecenie: 'Przełącz się na commit, w którym pojawił się plik3.txt.',
-    podpowiedz: 'Pomyśl, na której gałęzi powstał plik3.txt, albo przełączaj się na kolejne commity i obserwuj katalog.',
+    podpowiedz: 'Użyj: git checkout <hash> (hash wkleisz, klikając commit w grafie) albo git checkout <nazwa-gałęzi>. Pomyśl, na której gałęzi powstał plik3.txt, albo przełączaj się na kolejne commity i obserwuj katalog.',
     warunek: { typ: 'plikPojawilSie', plik: 'plik3.txt' },
     poZaliczeniu: () => 'To commit „Dodano plik3". Wskazuje na niego także gałąź nowa-funkcja - dlatego git checkout nowa-funkcja prowadzi w to samo miejsce, tyle że bez odczepiania HEAD.' },
   { polecenie: 'Znajdź commit, w którym plik1.txt ma dokładnie dwie linie i nie ma linii „ta linia powstala na main". Przełącz się na niego.',
     podpowiedz: 'Przełączaj się na kolejne commity (git checkout i hash z grafu) i patrz na podgląd plik1.txt w katalogu.',
-    warunek: { typ: 'plikMaLinie', plik: 'plik1.txt', linie: ['to jest poczatkowa zawartosc pliku', 'to dodalismy w kolejnym commicie'] },
+    warunek: { typ: 'plikJakW', plik: 'plik1.txt', commit: 'C2' },
     poZaliczeniu: (k) => `Pasuje! Ta sama treść plik1.txt jest też w: ${k.pozostale.join(', ')}. Każdy commit to migawka całego katalogu - plik1.txt jest w nich identyczny, ale pozostałe pliki już nie.` },
   { polecenie: 'Przełącz się na commit „Druga linia w plik1" i utwórz tam gałąź poprawka.',
     podpowiedz: 'Dwie komendy: najpierw git checkout <hash>, potem git checkout -b poprawka. Jeśli gałąź poprawka już istnieje (z wcześniejszych prób), wpisz restart i zacznij od nowa.',
@@ -1586,8 +1589,9 @@ function commityPasujace(warunek) {
   if (warunek.typ === 'plikPojawilSie') {
     return cs.filter((c) => maWlasne(c.pliki, warunek.plik) && c.rodzice.every((r) => !maWlasne(commitPoId(r).pliki, warunek.plik))).map((c) => c.id);
   }
-  if (warunek.typ === 'plikMaLinie') {
-    return cs.filter((c) => maWlasne(c.pliki, warunek.plik) && c.pliki[warunek.plik].join('\n') === warunek.linie.join('\n')).map((c) => c.id);
+  if (warunek.typ === 'plikJakW') {
+    const wzor = commitPoId(warunek.commit).pliki[warunek.plik].join('\n');
+    return cs.filter((c) => maWlasne(c.pliki, warunek.plik) && c.pliki[warunek.plik].join('\n') === wzor).map((c) => c.id);
   }
   return [];
 }
@@ -1599,7 +1603,7 @@ function sprawdz(cwiczenie, stan, wykonanie) {
   let ok = false;
   if (w.typ === 'naGalezi') ok = stan.head.typ === 'galaz' && stan.head.nazwa === w.nazwa;
   else if (w.typ === 'odczepionyNa') ok = stan.head.typ === 'odczepiony' && stan.head.commit === w.commit;
-  else if (w.typ === 'plikPojawilSie' || w.typ === 'plikMaLinie') {
+  else if (w.typ === 'plikPojawilSie' || w.typ === 'plikJakW') {
     const zbior = commityPasujace(w);
     ok = zbior.includes(c);
     kontekst.pozostale = zbior.filter((x) => x !== c).map((x) => `${skrot(x)} „${commitPoId(x).opis}"`);
@@ -1662,7 +1666,7 @@ git commit -m "Ćwiczenia 1-8, sprawdzarka i postęp" -m "Co-Authored-By: Claude
 
 **Interfaces:**
 - Consumes: `SCENARIUSZ`, `commitPoId`, `migawka`, `biezacyCommit`, `osiagalneZ`, `roznicaMigawek`, `roznicaLinii`, `domyslnyPlik`, `opisPolozenia`, `nowaSesja` (Task 2-7).
-- Produces: `htmlEl(tag, atrybuty, ...dzieci)`, `svgEl(nazwa, atrybuty, rodzic)`, `kolorGalezi(nazwa, galezie)`, `rysujGraf(svg, { commity, galezie, head, osiagalne, naKlik })`, `rysujKatalog(kontener, { pliki, poprzednie, wybrany, naWybor })`, stan widoku `W = { sesja, pliki, poprzedniePliki, wybranyPlik, historiaKomend, pozycjaHistorii, zaliczenie, podpowiedz }`, `budujSymulator()`, `odswiezSymulator()`, `rysujKatalogSym()`, `nowySvg(id)`.
+- Produces: `htmlEl(tag, atrybuty, ...dzieci)`, `svgEl(nazwa, atrybuty, rodzic)`, `kolorGalezi(nazwa, galezie)`, `rysujGraf(svg, { commity, galezie, head, osiagalne, naKlik })`, `rysujKatalog(kontener, { pliki, poprzednie, wybrany, naWybor, pokazUsuniete = true })`, stan widoku `W = { sesja, pliki, poprzedniePliki, wybranyPlik, historiaKomend, pozycjaHistorii, zaliczenie, podpowiedz }`, `budujSymulator()`, `odswiezSymulator()`, `rysujKatalogSym(pokazUsuniete = true)`, `nowySvg(id)`.
 
 Ten blok nie ma testów automatycznych (spec 10: rysowanie sprawdzane ręcznie). Test `wszystkie bloki skryptu się kompilują` z Task 1 pilnuje składni.
 
@@ -1710,14 +1714,19 @@ function pozycja(id) {
 }
 
 function rysujGraf(svg, { commity, galezie, head, osiagalne, naKlik }) {
-  svg.setAttribute('viewBox', `0 0 ${GRAF.szerokosc} ${GRAF.wysokosc}`);
+  const granice = { minX: 0, minY: 0, maxX: GRAF.szerokosc, maxY: GRAF.wysokosc };
+  const obejmij = (x1, y1, x2, y2) => {
+    granice.minX = Math.min(granice.minX, x1); granice.minY = Math.min(granice.minY, y1);
+    granice.maxX = Math.max(granice.maxX, x2); granice.maxY = Math.max(granice.maxY, y2);
+  };
   let tlo = svg.querySelector('g.tlo');
   if (!tlo) tlo = svgEl('g', { class: 'tlo' }, svg);
   tlo.replaceChildren();
   let headG = svg.querySelector('g.head-etykieta');
   if (!headG) {
     headG = svgEl('g', { class: 'head-etykieta' }, svg);
-    svgEl('line', { x1: 0, y1: 22, x2: 0, y2: 34, stroke: '#a16207', 'stroke-width': 2 }, headG);
+    svgEl('line', { class: 'head-strzalka', stroke: '#a16207', 'stroke-width': 2 }, headG);
+    svgEl('polygon', { class: 'head-grot', fill: '#a16207' }, headG);
     svgEl('rect', { x: -26, y: 0, width: 52, height: 22, rx: 4 }, headG);
     svgEl('text', { x: 0, y: 15, 'text-anchor': 'middle' }, headG).textContent = 'HEAD';
     headG.style.transition = 'none';
@@ -1762,6 +1771,7 @@ function rysujGraf(svg, { commity, galezie, head, osiagalne, naKlik }) {
     if (head && head.typ === 'galaz') nazwy.sort((a, b) => (a === head.nazwa) - (b === head.nazwa));
     nazwy.forEach((nazwa, i) => {
       const szer = nazwa.length * 7.5 + 16;
+      obejmij(p.x - szer / 2, p.y - 48 - 26 * i, p.x + szer / 2, p.y - 26 - 26 * i);
       const g = svgEl('g', { class: 'etykieta', transform: `translate(${p.x - szer / 2} ${p.y - 48 - 26 * i})` }, tlo);
       svgEl('rect', { width: szer, height: 22, rx: 4, fill: kolorGalezi(nazwa, galezie) }, g);
       svgEl('text', { x: szer / 2, y: 15, 'text-anchor': 'middle' }, g).textContent = nazwa;
@@ -1770,19 +1780,36 @@ function rysujGraf(svg, { commity, galezie, head, osiagalne, naKlik }) {
 
   if (biezacy && widoczne.has(biezacy)) {
     const p = pozycja(biezacy);
-    const n = (naCommicie[biezacy] || []).length;
-    const gora = n ? p.y - 48 - 26 * (n - 1) : p.y - 20;
+    const odczepiony = head.typ === 'odczepiony';
+    const linia = headG.querySelector('.head-strzalka');
+    const grot = headG.querySelector('.head-grot');
+    let x, y;
+    if (odczepiony) {
+      // HEAD obok kółka, strzałka prosto na commit - wyraźnie inaczej niż HEAD wskazujący gałąź.
+      x = p.x + 58; y = p.y - 11;
+      for (const [k, v] of Object.entries({ x1: -26, y1: 11, x2: -36, y2: 11 })) linia.setAttribute(k, v);
+      grot.setAttribute('points', '-35,6 -35,16 -42,11');
+    } else {
+      // Gałąź wskazywana przez HEAD leży na szczycie stosu etykiet tego commita.
+      const n = naCommicie[biezacy].length;
+      x = p.x; y = p.y - 48 - 26 * (n - 1) - 34;
+      for (const [k, v] of Object.entries({ x1: 0, y1: 22, x2: 0, y2: 30 })) linia.setAttribute(k, v);
+      grot.setAttribute('points', '-5,29 5,29 0,35');
+    }
+    obejmij(x - 42, y, x + 26, y + 36);
     headG.style.display = '';
-    headG.classList.toggle('odczepiony', head.typ === 'odczepiony');
-    headG.style.transform = `translate(${p.x}px, ${gora - 34}px)`;
+    headG.classList.toggle('odczepiony', odczepiony);
+    headG.style.transform = `translate(${x}px, ${y}px)`;
   } else {
     headG.style.display = 'none';
   }
+  svg.setAttribute('viewBox', `${granice.minX - 8} ${granice.minY - 8} ${granice.maxX - granice.minX + 16} ${granice.maxY - granice.minY + 16}`);
 }
 
-function rysujKatalog(kontener, { pliki, poprzednie, wybrany, naWybor }) {
+// pokazUsuniete = false przy samym wyborze pliku - animacja znikania nie odtwarza się ponownie.
+function rysujKatalog(kontener, { pliki, poprzednie, wybrany, naWybor, pokazUsuniete = true }) {
   const r = roznicaMigawek(poprzednie, pliki);
-  const nazwy = [...new Set([...Object.keys(pliki), ...r.usuniete])].sort();
+  const nazwy = [...new Set([...Object.keys(pliki), ...(pokazUsuniete ? r.usuniete : [])])].sort();
   const lista = htmlEl('ul');
   for (const n of nazwy) {
     const usuniety = r.usuniete.includes(n);
@@ -1815,10 +1842,10 @@ function budujSymulator() {
   odswiezSymulator();
 }
 
-function rysujKatalogSym() {
+function rysujKatalogSym(pokazUsuniete = true) {
   rysujKatalog(document.getElementById('sym-katalog'), {
-    pliki: W.pliki, poprzednie: W.poprzedniePliki, wybrany: W.wybranyPlik,
-    naWybor: (n) => { W.wybranyPlik = n; rysujKatalogSym(); },
+    pliki: W.pliki, poprzednie: W.poprzedniePliki, wybrany: W.wybranyPlik, pokazUsuniete,
+    naWybor: (n) => { W.wybranyPlik = n; rysujKatalogSym(false); },
   });
 }
 
@@ -2025,6 +2052,9 @@ Otwórz plik od nowa, zakładka 2:
 - Terminal pokazuje powitanie i znak zachęty `PS C:\cwiczenia-git>`; kliknięcie w terminal ustawia kursor w polu.
 - `git checkout nowa-funkcja`: komunikat gita, pod nim żółte objaśnienie; HEAD płynnie przesuwa się nad `nowa-funkcja`; C5 i C6 przygasają; `plik1.txt` ma znacznik „~ zmieniony", podgląd pokazuje przekreśloną linię „ta linia powstala na main"; ćwiczenie 1 zaliczone (zielona ramka), wyświetla się ćwiczenie 2.
 - Wpisz `git checkout ` i kliknij pierwszy commit - hash `1c4e7a2` wkleja się bez wykonania; Enter: długie ostrzeżenie, pomarańczowy pasek „Odczepiony HEAD", przerywana pomarańczowa etykieta HEAD nad C1, `plik2.txt` i `plik3.txt` przekreślone i znikają.
+- W stanie odczepionym etykieta HEAD stoi z prawej strony kółka commita ze strzałką skierowaną na commit (nie nad etykietą gałęzi) - także po `git checkout <hash C6>`, gdy `main` wskazuje ten sam commit.
+- Po przełączeniu z C6 na C1 kliknij `plik1.txt` - przekreślone `plik2.txt` i `plik3.txt` nie pojawiają się ponownie.
+- `git checkout -b a`, `-b b`, `-b c`, `-b d` na C6: wszystkie etykiety i HEAD mieszczą się w ramce grafu.
 - Strzałki ↑/↓ przewijają historię komend; Ctrl+L i `clear` czyszczą terminal.
 - `Podpowiedź` pokazuje i ukrywa tekst; `Pomiń` przechodzi dalej i kropka jest kreskowana.
 - Przejdź wszystkie 8 ćwiczeń (wzorzec: `git checkout nowa-funkcja`, `git checkout main`, hash C1, `git checkout main`, `git checkout nowa-funkcja`, hash C3, hash C2 + `git checkout -b poprawka`, hash C6). Po 8.: „Koniec ćwiczeń", link przełącza na zakładkę 3.
@@ -2097,10 +2127,10 @@ function odswiezHistorie() {
   const pliki = katalogKroku(k);
   const poprzednie = poprzedni ? katalogKroku(poprzedni) : {};
   H.wybrany = domyslnyPlik(pliki, poprzednie, H.wybrany);
-  const rysuj = () => rysujKatalog(document.getElementById('hist-katalog'), {
-    pliki, poprzednie, wybrany: H.wybrany, naWybor: (n) => { H.wybrany = n; rysuj(); },
+  const rysuj = (pokazUsuniete) => rysujKatalog(document.getElementById('hist-katalog'), {
+    pliki, poprzednie, wybrany: H.wybrany, pokazUsuniete, naWybor: (n) => { H.wybrany = n; rysuj(false); },
   });
-  rysuj();
+  rysuj(true);
 }
 ```
 
@@ -2367,7 +2397,7 @@ function przyciskKopiuj(tekst) {
 function blokKomendy(tekst) {
   if (/<[^>]+>/.test(tekst)) {
     return htmlEl('div', { class: 'komenda do-uzupelnienia', title: 'Zamiast tekstu w nawiasach ostrych wstaw swoje dane' },
-      htmlEl('code', {}, tekst), htmlEl('span', { style: 'font: 12px "Segoe UI", sans-serif' }, 'skopiuj z GitHuba'));
+      htmlEl('code', {}, tekst), htmlEl('span', { style: 'font: 12px "Segoe UI", sans-serif' }, 'zamień adres na swój (z GitHuba)'), przyciskKopiuj(tekst));
   }
   return htmlEl('div', { class: 'komenda' }, htmlEl('code', {}, tekst), przyciskKopiuj(tekst));
 }
@@ -2445,7 +2475,7 @@ Zakładka 3:
 - Sekcje 0-11, potem niebieska ramka „Gdy coś pójdzie nie tak"; linki „ramka na dole strony" przewijają do ramki.
 - „Kopiuj" przy `git --version` zmienia napis na „Skopiowano"; wklej w Notatniku - jest `git --version`. Sprawdź to przy otwarciu przez `file://` (dwuklik).
 - Krok 4: plik `plik1.txt` z przyciskiem „Kopiuj" - wklejona treść ma jedną linię; przy K3 kopiuje się tylko dopisywana linia.
-- K4: komenda `git remote add origin <adres-repozytorium-z-GitHuba>` w przerywanej ramce, bez przycisku „Kopiuj", z dopiskiem „skopiuj z GitHuba".
+- K4: komenda `git remote add origin <adres-repozytorium-z-GitHuba>` w przerywanej ramce, z dopiskiem „zamień adres na swój (z GitHuba)" i przyciskiem „Kopiuj".
 - Miejsca na zrzuty pokazują szare pola „Zrzut ekranu: ..." (zrzuty dochodzą w Task 12).
 - Wytłuszczone ostrzeżenia (czerwone ramki) w krokach 2, 5, 7, 8, 9, 11.
 

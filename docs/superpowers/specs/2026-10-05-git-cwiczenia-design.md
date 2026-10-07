@@ -164,7 +164,7 @@ Komendy symulatora (komunikaty po polsku, typ `symulator`):
 | `git checkout -b <nazwa>` | nowa gałąź na bieżącym commicie + przełączenie na nią |
 | `git checkout -b` (bez nazwy) | ``error: switch `b' requires a value`` |
 | `git checkout -b <nazwa>` przy kolizji z istniejącą gałęzią (`main/temat` gdy istnieje `main` albo `main` gdy istnieje `main/temat`) | `fatal: cannot lock ref 'refs/heads/<nazwa>': 'refs/heads/<istniejąca>' exists; cannot create 'refs/heads/<nazwa>'` |
-| `git checkout <gałąź lub hash> <dodatkowe>` | `error: pathspec '<pierwszy dodatkowy>' did not match any file(s) known to git` (jak w gicie; stan bez zmian) |
+| `git checkout <gałąź lub hash> <dodatkowe...>` | `error: pathspec '<x>' did not match any file(s) known to git` dla każdego dodatkowego argumentu (jak w gicie 2.47.1; stan bez zmian) |
 | `git checkout ""` | `fatal: empty string is not a valid pathspec. please use . instead if you meant to match all paths` |
 | `git checkout -<nieznana opcja>` (każda opcja poza `-b` i `--`) | ``error: unknown switch `<x>'`` + `usage: git checkout [<options>] <branch>` (świadome uproszczenie: dalsza lista opcji gita pominięta) |
 | `git checkout -b <nazwa> <cokolwiek>` | komunikat symulatora: „W symulatorze nową gałąź tworzysz tam, gdzie stoisz: najpierw przełącz się na commit, potem git checkout -b nazwa" |
@@ -172,7 +172,7 @@ Komendy symulatora (komunikaty po polsku, typ `symulator`):
 | `git checkout <nazwa pliku z bieżącej migawki>` lub `git checkout -- ...` | komunikat symulatora: „Przywracanie plików nie jest częścią tego ćwiczenia" |
 | `git checkout <inne>` | `error: pathspec '<inne>' did not match any file(s) known to git` |
 | `git <znana komenda gita>`: `add`, `commit`, `push`, `pull`, `fetch`, `merge`, `rebase`, `reset`, `restore`, `revert`, `stash`, `status`, `log`, `diff`, `show`, `branch`, `switch`, `init`, `clone`, `remote`, `config`, `tag` | komunikat symulatora: „W symulatorze tylko się poruszamy - tę komendę wykonasz we własnym repo (zakładka 3)" |
-| `git <nieznana>` | `git: '<x>' is not a git command. See 'git --help'.` + jeśli dokładnie jedna komenda z listy obsługiwanej lub znanej ma odległość edycyjną <= 2 (bez rozróżniania wielkości liter): pusta linia, `The most similar command is`, `\t<komenda>`. **Świadome uproszczenie:** dobór podpowiedzi nie odtwarza algorytmu gita (np. git dla `co` podpowiada trzy komendy); dosłowna zgodność obowiązuje tylko dla pierwszej linii. |
+| `git <nieznana>` | `git: '<x>' is not a git command. See 'git --help'.` + jeśli dokładnie jedna komenda z listy obsługiwanej lub znanej ma odległość edycyjną <= 2 (gdy takich komend jest więcej, podpowiedzi nie ma) (bez rozróżniania wielkości liter): pusta linia, `The most similar command is`, `\t<komenda>`. **Świadome uproszczenie:** dobór podpowiedzi nie odtwarza algorytmu gita (np. git dla `co` podpowiada trzy komendy); dosłowna zgodność obowiązuje tylko dla pierwszej linii. |
 
 Kolejność rozstrzygania argumentu `checkout`: (1) dokładna nazwa gałęzi, (2) forma nieobsługiwana (`HEAD`, `@`, `-`, `~`, `^`), (3) nazwa pliku lub `--`, (4) prefiks hasha, (5) błąd pathspec.
 
@@ -303,7 +303,7 @@ Zakres:
 4. **Ćwiczenia:** dla każdego z 8 - wszystkie poprawne rozwiązania i przykładowe błędne; odrzucone wejścia (błąd gita, komunikat symulatora, np. `git checkout HEAD~1` przy spełnionym już warunku ćwiczenia 6) nie zaliczają; ćwiczenie 7 nie zalicza się samym `git checkout poprawka`.
 5. **Postęp (`krokPostepu`):** pełne przejście 1-8, pomijanie, `restart` nie zmienia postępu, jedno wykonanie zalicza najwyżej jedno ćwiczenie, stan spełniony na starcie ćwiczenia nie zalicza.
 6. **Spójność scenariusza:** zmiana każdego commita liczona względem jego (pierwszego) rodzica zgadza się z opisem kroku K (C5 względem C2); przejścia katalogu między krokami (np. K8 -> K9: znikają `plik2.txt` i `plik3.txt`; K12 -> K13: pojawiają się) zgodne z `kroki`; rodzice C6 w kolejności (C5, C4); stany `lokalnie` i `github` każdego kroku spójne z `commity`; migawka C6 = `plik1.txt` z C5 + pliki z C4; pierwsze znaki hashy unikalne; zbiór dla ćwiczenia 6 = {C2, C3, C4}; osiągalność (z `nowa-funkcja` nieosiągalne tylko C5 i C6).
-7. **Typografia:** plik HTML nie zawiera znaków U+2014 i U+2013 ani encji `&mdash;`, `&ndash;` (test sprawdza kody znaków).
+7. **Typografia:** żaden plik tekstowy projektu (HTML, testy, narzędzia, dokumenty) nie zawiera znaków U+2014 i U+2013 ani encji HTML mdash/ndash (test sprawdza kody znaków).
 
 Ręczny przegląd w Chrome (bez automatyzacji): trzy zakładki, animacje, odczepiony HEAD, przygaszanie, „Kopiuj" przy `file://`, zrzuty, szybkie kolejne komendy w trakcie animacji (graf, katalog, HEAD i postęp zgodne ze `stan`), przełączanie zakładek w trakcie ćwiczeń, „Wstecz"/„Dalej" w zakładce 1 w obu kierunkach.
 
