@@ -903,6 +903,56 @@ function rysujCwiczenie() {
     kropki].filter((x) => x !== null));
 }
 
+const H = { krok: 0, wybrany: null };
+
+function budujHistorie() {
+  document.getElementById('historia').replaceChildren(
+    htmlEl('div', { class: 'nawigacja-krokow' },
+      htmlEl('button', { id: 'hist-wstecz', onclick: () => { if (H.krok > 0) { H.krok--; odswiezHistorie(); } } }, '← Wstecz'),
+      htmlEl('span', { id: 'hist-licznik' }),
+      htmlEl('button', { id: 'hist-dalej', onclick: () => { if (H.krok < SCENARIUSZ.kroki.length - 1) { H.krok++; odswiezHistorie(); } } }, 'Dalej →')),
+    htmlEl('div', { class: 'historia-uklad' },
+      htmlEl('div', { class: 'panel' }, htmlEl('div', { id: 'hist-opis' }), nowySvg('hist-graf')),
+      htmlEl('div', { class: 'panel katalog', id: 'hist-katalog' })));
+  odswiezHistorie();
+}
+
+function odswiezHistorie() {
+  const kroki = SCENARIUSZ.kroki;
+  const k = kroki[H.krok];
+  const poprzedni = H.krok > 0 ? kroki[H.krok - 1] : null;
+  document.getElementById('hist-licznik').textContent = `krok ${H.krok + 1} / ${kroki.length}`;
+  document.getElementById('hist-wstecz').disabled = H.krok === 0;
+  document.getElementById('hist-dalej').disabled = H.krok === kroki.length - 1;
+
+  const czesci = [htmlEl('h2', {}, `${k.id}. ${k.tytul}`)];
+  if (k.plik) {
+    czesci.push(htmlEl('p', {}, k.plik.akcja === 'nowy' ? `Notatnik: utwórz ${k.plik.nazwa} z treścią:` : `Notatnik: dopisz na końcu ${k.plik.nazwa} linię:`),
+      htmlEl('div', { class: 'plik' }, htmlEl('pre', {}, k.plik.linie.join('\n'))));
+  }
+  if (k.naGithubie) czesci.push(htmlEl('p', {}, htmlEl('strong', {}, 'Na GitHubie: '), k.naGithubie));
+  for (const kom of komendyKroku(k)) czesci.push(htmlEl('div', { class: 'komenda' }, htmlEl('code', {}, kom)));
+  czesci.push(htmlEl('p', {}, k.opis));
+  if (Object.keys(k.github.galezie).length > 0) {
+    czesci.push(htmlEl('div', { class: 'stan-zdalny' },
+      htmlEl('strong', {}, 'U Ciebie: '), opisGalezi(k.lokalnie.galezie), htmlEl('br'),
+      htmlEl('strong', {}, 'Na GitHubie: '), opisGalezi(k.github.galezie)));
+  }
+  document.getElementById('hist-opis').replaceChildren(...czesci);
+
+  const l = k.lokalnie;
+  const biezacy = maWlasne(l.galezie, l.head.nazwa) ? l.galezie[l.head.nazwa] : null;
+  rysujGraf(document.getElementById('hist-graf'), { commity: l.commity, galezie: l.galezie, head: l.head, osiagalne: osiagalneZ(biezacy), naKlik: null });
+
+  const pliki = katalogKroku(k);
+  const poprzednie = poprzedni ? katalogKroku(poprzedni) : {};
+  H.wybrany = domyslnyPlik(pliki, poprzednie, H.wybrany);
+  const rysuj = (pokazUsuniete) => rysujKatalog(document.getElementById('hist-katalog'), {
+    pliki, poprzednie, wybrany: H.wybrany, pokazUsuniete, naWybor: (n) => { H.wybrany = n; rysuj(false); },
+  });
+  rysuj(true);
+}
+
 function pokazZakladke(id) {
   for (const b of document.querySelectorAll('.zakladki button')) b.setAttribute('aria-selected', String(b.dataset.zakladka === id));
   for (const s of document.querySelectorAll('.panel-zakladki')) s.hidden = s.id !== id;
@@ -911,6 +961,7 @@ function pokazZakladke(id) {
 
 function start() {
   for (const b of document.querySelectorAll('.zakladki button')) b.addEventListener('click', () => pokazZakladke(b.dataset.zakladka));
+  budujHistorie();
   budujSymulator();
   pokazZakladke('historia');
 }
