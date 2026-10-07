@@ -771,7 +771,10 @@ function budujSymulator() {
     htmlEl('div', { class: 'panel obszar-cwiczenie cwiczenie', id: 'sym-cwiczenie' }),
     htmlEl('div', { class: 'obszar-terminal', id: 'sym-obszar-terminala' }),
     htmlEl('div', { class: 'panel obszar-katalog katalog', id: 'sym-katalog' })));
+  document.getElementById('sym-obszar-terminala').append(budujTerminal());
+  wypisz([{ typ: 'symulator', tekst: TEKSTY.powitanie }]);
   odswiezSymulator();
+  rysujCwiczenie();
 }
 
 function rysujKatalogSym(pokazUsuniete = true) {
@@ -795,6 +798,109 @@ function odswiezSymulator() {
     : []));
   W.wybranyPlik = domyslnyPlik(W.pliki, W.poprzedniePliki, W.wybranyPlik);
   rysujKatalogSym();
+}
+
+const ZNAK_ZACHETY = 'PS C:\\cwiczenia-git> ';
+
+function budujTerminal() {
+  const wejscie = htmlEl('input', { id: 'sym-wejscie', type: 'text', spellcheck: 'false', autocomplete: 'off', 'aria-label': 'Wpisz komendę' });
+  wejscie.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const linia = wejscie.value;
+      wejscie.value = '';
+      wykonajLinie(linia);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (W.pozycjaHistorii > 0) { W.pozycjaHistorii--; wejscie.value = W.historiaKomend[W.pozycjaHistorii]; }
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (W.pozycjaHistorii < W.historiaKomend.length) { W.pozycjaHistorii++; wejscie.value = W.historiaKomend[W.pozycjaHistorii] ?? ''; }
+    } else if (e.key === 'l' && e.ctrlKey) {
+      e.preventDefault();
+      document.getElementById('sym-wyjscie').replaceChildren();
+    }
+  });
+  const terminal = htmlEl('div', { class: 'terminal', id: 'sym-terminal' },
+    htmlEl('h2', { style: 'color:#94a3b8' }, 'Terminal'),
+    htmlEl('div', { id: 'sym-wyjscie' }),
+    htmlEl('div', { class: 'wejscie' }, htmlEl('span', {}, ZNAK_ZACHETY), wejscie));
+  terminal.addEventListener('click', () => { if (!window.getSelection().toString()) wejscie.focus(); });
+  return terminal;
+}
+
+function wypisz(linie) {
+  const wyjscie = document.getElementById('sym-wyjscie');
+  for (const l of linie) {
+    let klasa = 'linia ' + l.typ;
+    if (l.typ === 'git' && /^(fatal|error):/.test(l.tekst)) klasa += ' blad';
+    if (l.typ === 'git' && /^hint:/.test(l.tekst)) klasa += ' hint';
+    wyjscie.append(htmlEl('div', { class: klasa }, l.tekst === '' ? '\u00a0' : l.tekst));
+  }
+  const terminal = document.getElementById('sym-terminal');
+  terminal.scrollTop = terminal.scrollHeight;
+}
+
+function wykonajLinie(linia) {
+  wypisz([{ typ: 'komenda', tekst: ZNAK_ZACHETY + linia }]);
+  if (linia.trim()) W.historiaKomend.push(linia);
+  W.pozycjaHistorii = W.historiaKomend.length;
+  const r = przetworz(W.sesja, linia);
+  if (r.akcja === 'clear') document.getElementById('sym-wyjscie').replaceChildren();
+  wypisz(r.wynik);
+  const zmianaStanu = r.sesja.stan !== W.sesja.stan;
+  W.sesja = r.sesja;
+  if (r.zaliczenie) { W.zaliczenie = r.zaliczenie; W.podpowiedz = false; }
+  if (zmianaStanu) {
+    W.poprzedniePliki = W.pliki;
+    W.pliki = migawka(biezacyCommit(W.sesja.stan));
+    odswiezSymulator();
+  }
+  rysujCwiczenie();
+}
+
+function wklejHash(id) {
+  const wejscie = document.getElementById('sym-wejscie');
+  const h = commitPoId(id).hash.slice(0, 7);
+  wejscie.value += (wejscie.value && !wejscie.value.endsWith(' ') ? ' ' : '') + h;
+  wejscie.focus();
+}
+
+function pominCwiczenie() {
+  W.sesja = pomin(W.sesja);
+  W.zaliczenie = null;
+  W.podpowiedz = false;
+  rysujCwiczenie();
+}
+
+function rysujCwiczenie() {
+  const { postep } = W.sesja;
+  const kontener = document.getElementById('sym-cwiczenie');
+  const kropki = htmlEl('div', { class: 'kropki' }, ...postep.wyniki.map((w, i) => htmlEl('span', {
+    class: ['kropka', w || '', i === postep.biezace ? 'biezace' : ''].join(' ').trim(),
+    title: `Ćwiczenie ${i + 1}` + (w === 'zaliczone' ? ': zaliczone' : w === 'pominiete' ? ': pominięte' : ''),
+  })));
+  const zaliczenie = W.zaliczenie
+    ? htmlEl('div', { class: 'zaliczenie' }, htmlEl('strong', {}, `Ćwiczenie ${W.zaliczenie.nr + 1} zaliczone! `), W.zaliczenie.komunikat)
+    : null;
+  if (postep.biezace >= CWICZENIA.length) {
+    const ile = postep.wyniki.filter((w) => w === 'zaliczone').length;
+    kontener.replaceChildren(...[htmlEl('h2', {}, 'Koniec ćwiczeń'), zaliczenie,
+      htmlEl('p', {}, `Zaliczone: ${ile} z ${CWICZENIA.length}. Teraz zrób to samo we własnym repozytorium: `,
+        htmlEl('a', { href: '#', onclick: (e) => { e.preventDefault(); pokazZakladke('konsola'); } }, 'zakładka 3. Zrób to sam w konsoli'), '.'),
+      kropki].filter((x) => x !== null));
+    return;
+  }
+  const cw = CWICZENIA[postep.biezace];
+  // replaceChildren zamienia null na tekst "null" - puste części odfiltrowujemy.
+  kontener.replaceChildren(...[
+    htmlEl('h2', {}, `Ćwiczenie ${postep.biezace + 1} / ${CWICZENIA.length}`),
+    zaliczenie,
+    htmlEl('p', { class: 'polecenie' }, cw.polecenie),
+    htmlEl('div', {},
+      htmlEl('button', { onclick: () => { W.podpowiedz = !W.podpowiedz; rysujCwiczenie(); } }, W.podpowiedz ? 'Ukryj podpowiedź' : 'Podpowiedź'), ' ',
+      htmlEl('button', { onclick: pominCwiczenie }, 'Pomiń')),
+    W.podpowiedz ? htmlEl('div', { class: 'podpowiedz' }, cw.podpowiedz) : null,
+    kropki].filter((x) => x !== null));
 }
 
 function pokazZakladke(id) {
