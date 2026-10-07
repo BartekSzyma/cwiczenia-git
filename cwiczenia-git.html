@@ -234,7 +234,42 @@ const OBJASNIENIA = {
   nieKomendaGita: (x, p) => `Tłumaczenie: „${x} nie jest komendą gita". Może literówka?` + (p ? ` Git podpowiada najbardziej podobną komendę: ${p}.` : ''),
 };
 
-const DANE = { SCENARIUSZ, ZNANE_KOMENDY_GITA, TEKSTY, OBJASNIENIA };
+const CWICZENIA = [
+  { polecenie: 'Przełącz się na gałąź nowa-funkcja.',
+    podpowiedz: 'Użyj: git checkout <nazwa-gałęzi>',
+    warunek: { typ: 'naGalezi', nazwa: 'nowa-funkcja' },
+    poZaliczeniu: () => 'Zobacz katalog: plik1.txt stracił linię „ta linia powstala na main" - gałąź nowa-funkcja jej nie zna. plik2.txt i plik3.txt zostały, bo powstały właśnie na tej gałęzi. Dwa ostatnie commity z main przygasły: nie należą do historii nowa-funkcja.' },
+  { polecenie: 'Wróć na gałąź main.',
+    podpowiedz: 'Użyj: git checkout <nazwa-gałęzi>. Nazwy gałęzi widać na kolorowych etykietach w grafie.',
+    warunek: { typ: 'naGalezi', nazwa: 'main' },
+    poZaliczeniu: () => 'Linia „ta linia powstala na main" wróciła - jesteś znowu w stanie po scaleniu. Gałąź to tylko wskaźnik: przełączenie podmienia pliki na te z commita, na który gałąź wskazuje.' },
+  { polecenie: 'Przełącz się na pierwszy commit w historii.',
+    podpowiedz: 'Wpisz git checkout i spację, potem kliknij pierwszy commit z lewej w grafie - jego hash wklei się do terminala. Naciśnij Enter.',
+    warunek: { typ: 'odczepionyNa', commit: 'C1' },
+    poZaliczeniu: () => 'Został tylko plik1.txt z jedną linią - tak wyglądało repozytorium na samym początku. HEAD wskazuje teraz bezpośrednio commit, a nie gałąź: to odczepiony HEAD (detached HEAD).' },
+  { polecenie: 'Wróć na gałąź main.',
+    podpowiedz: 'git checkout <nazwa-gałęzi> działa także z odczepionego HEAD.',
+    warunek: { typ: 'naGalezi', nazwa: 'main' },
+    poZaliczeniu: () => 'Git wypisał „Previous HEAD position was..." - przypomina, z którego commita wychodzisz. Tak opuszcza się odczepiony HEAD: przełączając się na gałąź.' },
+  { polecenie: 'Przełącz się na commit, w którym pojawił się plik3.txt.',
+    podpowiedz: 'Użyj: git checkout <hash> (hash wkleisz, klikając commit w grafie) albo git checkout <nazwa-gałęzi>. Pomyśl, na której gałęzi powstał plik3.txt, albo przełączaj się na kolejne commity i obserwuj katalog.',
+    warunek: { typ: 'plikPojawilSie', plik: 'plik3.txt' },
+    poZaliczeniu: () => 'To commit „Dodano plik3". Wskazuje na niego także gałąź nowa-funkcja - dlatego git checkout nowa-funkcja prowadzi w to samo miejsce, tyle że bez odczepiania HEAD.' },
+  { polecenie: 'Znajdź commit, w którym plik1.txt ma dokładnie dwie linie i nie ma linii „ta linia powstala na main". Przełącz się na niego.',
+    podpowiedz: 'Przełączaj się na kolejne commity (git checkout i hash z grafu) i patrz na podgląd plik1.txt w katalogu.',
+    warunek: { typ: 'plikJakW', plik: 'plik1.txt', commit: 'C2' },
+    poZaliczeniu: (k) => `Pasuje! Ta sama treść plik1.txt jest też w: ${k.pozostale.join(', ')}. Każdy commit to migawka całego katalogu - plik1.txt jest w nich identyczny, ale pozostałe pliki już nie.` },
+  { polecenie: 'Przełącz się na commit „Druga linia w plik1" i utwórz tam gałąź poprawka.',
+    podpowiedz: 'Dwie komendy: najpierw git checkout <hash>, potem git checkout -b poprawka. Jeśli gałąź poprawka już istnieje (z wcześniejszych prób), wpisz restart i zacznij od nowa.',
+    warunek: { typ: 'nowaGalazNaCommicie', nazwa: 'poprawka', opis: 'Druga linia w plik1' },
+    poZaliczeniu: () => 'Gałąź poprawka powstała dokładnie tam, gdzie stałeś, i HEAD od razu na nią wskazuje - odczepiony HEAD się skończył.' },
+  { polecenie: 'Przełącz się na commit scalający (ten z dwiema wchodzącymi liniami) przez jego hash - nie przez nazwę main.',
+    podpowiedz: 'Wpisz git checkout i spację, potem kliknij ostatni commit w grafie.',
+    warunek: { typ: 'odczepionyNa', commit: 'C6' },
+    poZaliczeniu: () => 'Gałąź main wskazuje ten sam commit, a jednak HEAD jest odczepiony: git checkout <hash> zawsze odczepia HEAD. Na koniec wróć na main: git checkout main.' },
+];
+
+const DANE = { SCENARIUSZ, ZNANE_KOMENDY_GITA, TEKSTY, OBJASNIENIA, CWICZENIA };
 </script>
 <script id="logika">
 const maWlasne = (obiekt, klucz) => Object.prototype.hasOwnProperty.call(obiekt, klucz);
@@ -509,7 +544,65 @@ function wykonaj(stan, linia) {
   return nic(nieznanaKomendaGita(pod));
 }
 
-const LOGIKA = { commitPoId, skrot, migawka, stanStartowy, biezacyCommit, osiagalneZ, roznicaMigawek, roznicaLinii, domyslnyPlik, opisPolozenia, katalogKroku, komendyKroku, opisGalezi, tokenizuj, poprawnaNazwaGalezi, rozwiazRewizje, wykonaj };
+function commityPasujace(warunek) {
+  const cs = SCENARIUSZ.commity;
+  if (warunek.typ === 'plikPojawilSie') {
+    return cs.filter((c) => maWlasne(c.pliki, warunek.plik) && c.rodzice.every((r) => !maWlasne(commitPoId(r).pliki, warunek.plik))).map((c) => c.id);
+  }
+  if (warunek.typ === 'plikJakW') {
+    const wzor = commitPoId(warunek.commit).pliki[warunek.plik].join('\n');
+    return cs.filter((c) => maWlasne(c.pliki, warunek.plik) && c.pliki[warunek.plik].join('\n') === wzor).map((c) => c.id);
+  }
+  return [];
+}
+
+function sprawdz(cwiczenie, stan, wykonanie) {
+  const w = cwiczenie.warunek;
+  const c = biezacyCommit(stan);
+  const kontekst = { pozostale: [] };
+  let ok = false;
+  if (w.typ === 'naGalezi') ok = stan.head.typ === 'galaz' && stan.head.nazwa === w.nazwa;
+  else if (w.typ === 'odczepionyNa') ok = stan.head.typ === 'odczepiony' && stan.head.commit === w.commit;
+  else if (w.typ === 'plikPojawilSie' || w.typ === 'plikJakW') {
+    const zbior = commityPasujace(w);
+    ok = zbior.includes(c);
+    kontekst.pozostale = zbior.filter((x) => x !== c).map((x) => `${skrot(x)} „${commitPoId(x).opis}"`);
+  } else if (w.typ === 'nowaGalazNaCommicie') {
+    const cel = SCENARIUSZ.commity.find((x) => x.opis === w.opis).id;
+    ok = wykonanie.forma === 'nowaGalaz' && wykonanie.argument === w.nazwa && stan.galezie[w.nazwa] === cel;
+  }
+  return { zaliczone: ok, komunikat: ok ? cwiczenie.poZaliczeniu(kontekst) : null };
+}
+
+function krokPostepu(postep, zdarzenie) {
+  if (postep.biezace >= postep.wyniki.length || zdarzenie.typ === 'restart') return postep;
+  if (zdarzenie.typ === 'wykonanie' && !zdarzenie.zaliczone) return postep;
+  const wyniki = postep.wyniki.slice();
+  wyniki[postep.biezace] = zdarzenie.typ === 'pomin' ? 'pominiete' : 'zaliczone';
+  return { biezace: postep.biezace + 1, wyniki };
+}
+
+function nowaSesja() {
+  return { stan: stanStartowy(), postep: { biezace: 0, wyniki: new Array(CWICZENIA.length).fill(null) } };
+}
+
+function przetworz(sesja, linia) {
+  const r = wykonaj(sesja.stan, linia);
+  let postep = sesja.postep;
+  let zaliczenie = null;
+  if (r.wykonanie && postep.biezace < CWICZENIA.length) {
+    const wynik = sprawdz(CWICZENIA[postep.biezace], r.stan, r.wykonanie);
+    postep = krokPostepu(postep, { typ: 'wykonanie', zaliczone: wynik.zaliczone });
+    if (wynik.zaliczone) zaliczenie = { nr: sesja.postep.biezace, komunikat: wynik.komunikat };
+  }
+  return { sesja: { stan: r.stan, postep }, wynik: r.wynik, akcja: r.akcja, zaliczenie };
+}
+
+function pomin(sesja) {
+  return { ...sesja, postep: krokPostepu(sesja.postep, { typ: 'pomin' }) };
+}
+
+const LOGIKA = { commitPoId, skrot, migawka, stanStartowy, biezacyCommit, osiagalneZ, roznicaMigawek, roznicaLinii, domyslnyPlik, opisPolozenia, katalogKroku, komendyKroku, opisGalezi, tokenizuj, poprawnaNazwaGalezi, rozwiazRewizje, wykonaj, commityPasujace, sprawdz, krokPostepu, nowaSesja, przetworz, pomin };
 </script>
 <script id="widok">
 function pokazZakladke(id) {
