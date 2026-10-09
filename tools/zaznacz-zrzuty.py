@@ -1,7 +1,7 @@
 # Nanosi na zrzuty GitHuba czerwone ramki i podpisy wskazujące, co kliknąć.
 # Czyta oryginały z zrzuty/oryginaly/, zapisuje wynik do zrzuty/ (stamtąd bierze je tools/osadz-zrzuty.mjs).
 # Użycie: PYTHONUTF8=1 python tools/zaznacz-zrzuty.py
-# Współrzędne w pikselach zrzutu (1568x733): (x0, y0, x1, y1).
+# Współrzędne w pikselach zrzutu (szerokość 1568): (x0, y0, x1, y1).
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
@@ -40,6 +40,11 @@ ZAZNACZENIA = {
     ],
     "07-lista-commitow": [
         ((1238, 240, 1250, 259), "Kopiuj hash", "nad"),
+    ],
+    "08-network": [
+        ((697, 51, 766, 74), "1. Insights", "pod"),
+        ((288, 352, 528, 381), "2. Network", "lewo"),
+        ((858, 200, 976, 321), "3. Rozwidlenie i scalenie gałęzi", "prawo"),
     ],
 }
 
