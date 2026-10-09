@@ -25,7 +25,9 @@ Gdzie jesteśmy w procesie (superpowers:brainstorming, ścieżka architektoniczn
 - [x] Implementacja wg planu na gałęzi `symulator` - Task 1-11 gotowe, Task 12 kroki 1-5 (narzędzie `tools/osadz-zrzuty.mjs`) gotowe; `npm test` 72/72 (2026-10-08). Rejestr decyzji: `.superpowers/sdd/2026-10-07-git-cwiczenia-symulator/progress.md` (git-ignored).
 - [x] Recenzja całej gałęzi Codexem sol high: poprawiona obsługa klawiatury (commit `3cd826c`); 2 drobne uwagi odłożone (kolory przy gałęzi o nazwie liczbowej, krawędź C4->C6 przecina etykietę `nowa-funkcja`).
 - [ ] **Użytkownik: 8 zrzutów GitHuba do `zrzuty/` (nazwy w planie, Task 12 krok 6) przy przejściu zakładki 3 + ręczny test „Kopiuj" w prawdziwym Chrome przy `file://`** <- TU WZNOWIĆ
-- [ ] Potem: `node tools/osadz-zrzuty.mjs`, test kompletu zrzutów (Task 12 kroki 7-10), Task 13, decyzja o scaleniu `symulator` -> `main`
+- [ ] Potem: `node tools/osadz-zrzuty.mjs`, test kompletu zrzutów (Task 12 kroki 7-10), Task 13
+- [x] 2026-10-09: objaśnienie „gałąź już istnieje" wskazuje `restart` (gałąź utworzona na złym commicie); `npm test` 73/73
+- [x] 2026-10-09: scalenie `symulator` -> `main` (fast-forward) i publikacja na życzenie użytkownika: repo publiczne https://github.com/BartekSzyma/cwiczenia-git, GitHub Pages z `main` (katalog `/`), adres https://bartekszyma.github.io/cwiczenia-git/ (`index.html` przekierowuje na `cwiczenia-git.html`). Zakładka 3 opublikowana z pustymi ramkami na zrzuty. Kolejne wydanie = commit na `main` + `git push`.
 
 ## Cel i kontekst (ustalone)
 
