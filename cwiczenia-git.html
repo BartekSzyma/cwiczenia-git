@@ -224,7 +224,8 @@ const OBJASNIENIA = {
   juzNaCommicie: (h) => `Tłumaczenie: „HEAD jest teraz na ${h}". Już tu byłeś - nic się nie zmieniło.`,
   nowaGalaz: (g) => `Tłumaczenie: „Przełączono na nową gałąź ${g}". Gałąź ${g} powstała na commicie, na którym stoisz, i HEAD od razu na nią wskazuje. Jeśli HEAD był odczepiony, teraz już nie jest.`,
   galazIstnieje: (g, istniejaca) => `Tłumaczenie: „błąd krytyczny: gałąź o nazwie ${g} już istnieje". Wybierz inną nazwę albo przełącz się na istniejącą gałąź bez -b.` +
-    (g !== istniejaca ? ` W Windows git nie odróżnia wielkości liter w nazwach gałęzi: ${g} to dla niego to samo co ${istniejaca}.` : ''),
+    (g !== istniejaca ? ` W Windows git nie odróżnia wielkości liter w nazwach gałęzi: ${g} to dla niego to samo co ${istniejaca}.` : '') +
+    ' W symulatorze nie usuniesz ani nie przesuniesz gałęzi. Jeśli powstała w złym miejscu, wpisz restart i utwórz ją od nowa (postęp ćwiczeń zostaje).',
   zlaNazwa: (g) => `Tłumaczenie: „${g} nie jest poprawną nazwą gałęzi" (linie hint odsyłają do dokumentacji). Nazwa gałęzi nie może zawierać spacji ani znaków takich jak ~ ^ : ? * [ \\ i nie może zaczynać się od minusa. Użyj np. moja-galaz.`,
   kolizja: (g, k) => `Tłumaczenie: „nie można utworzyć ${g}, bo istnieje ${k}". Git zapisuje gałęzie jak pliki w folderach, więc gałąź ${k} blokuje nazwę ${g} (i odwrotnie). Wybierz inną nazwę.`,
   brakNazwy: 'Tłumaczenie: „opcja b wymaga wartości". Po -b podaj nazwę nowej gałęzi, np. git checkout -b moja-galaz.',

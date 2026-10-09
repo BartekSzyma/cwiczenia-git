@@ -70,6 +70,15 @@ test('-b: nowa gałąź na bieżącym commicie, także z odczepionego HEAD', () 
   assert.deepEqual(j(r.wykonanie), { forma: 'nowaGalaz', argument: 'poprawka' });
 });
 
+test('-b: gałąź już istnieje - objaśnienie wskazuje restart', () => {
+  const naZlym = seria(['git checkout 1c4e', 'git checkout -b poprawka', 'git checkout 5b8d']).stan;
+  const r = bezZmian('git checkout -b poprawka', naZlym);
+  assert.deepEqual(gitLinie(r), ["fatal: a branch named 'poprawka' already exists"]);
+  const objasnienie = r.wynik.find((l) => l.typ === 'objasnienie').tekst;
+  assert.match(objasnienie, /wpisz restart/);
+  assert.match(objasnienie, /postęp ćwiczeń zostaje/);
+});
+
 test('-b: błędy', () => {
   assert.deepEqual(gitLinie(bezZmian('git checkout -b main')), ["fatal: a branch named 'main' already exists"]);
   assert.deepEqual(gitLinie(bezZmian('git checkout -b Main')), ["fatal: a branch named 'Main' already exists"]);
